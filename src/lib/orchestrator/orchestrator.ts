@@ -21,18 +21,88 @@ const councilAssembler = new CouncilAssembler();
 const consensusDetector = new ConsensusDetector();
 const summaryGenerator = new SummaryGenerator();
 
+/**
+ * Compute debate parameters based on available agent count.
+ * Fewer agents = more rounds. More agents = fewer rounds (fit within 60s).
+ */
+function computeDebateParams(agentCount: number): { maxTurns: number; maxRounds: number } {
+  if (agentCount >= 4) return { maxTurns: agentCount, maxRounds: 1 };
+  if (agentCount === 3) return { maxTurns: agentCount * 2, maxRounds: 2 };
+  return { maxTurns: agentCount * 2, maxRounds: 2 };
+}
+
+/**
+ * Fast pre-debate health check — verify each provider responds.
+ * Runs all checks in parallel with a 2s timeout. Returns only healthy agents.
+ */
+async function healthCheckAgents(agents: AIAgent[]): Promise<AIAgent[]> {
+  const HEALTH_TIMEOUT_MS = 2_000;
+
+  const results = await Promise.allSettled(
+    agents.map(async (agent) => {
+      const controller = new AbortController();
+      const timer = setTimeout(() => controller.abort(), HEALTH_TIMEOUT_MS);
+      try {
+        const ok = await Promise.race([
+          agent.validateApiKey(),
+          new Promise<boolean>((_, reject) =>
+            setTimeout(() => reject(new Error('health timeout')), HEALTH_TIMEOUT_MS)
+          ),
+        ]);
+        return ok ? agent : null;
+      } catch {
+        return null;
+      } finally {
+        clearTimeout(timer);
+      }
+    })
+  );
+
+  return results
+    .map((r) => (r.status === 'fulfilled' ? r.value : null))
+    .filter((a): a is AIAgent => a !== null);
+}
+
 export async function* runDebate(
   session: DebateSession,
   apiKeys: Partial<Record<ProviderType, string>>,
   sessionId: string,
 ): AsyncIterable<SSEEvent> {
   // 1. Assemble the council
-  const agents = councilAssembler.assemble(session.problem, apiKeys);
+  const assembled = councilAssembler.assemble(session.problem, apiKeys);
+
+  if (assembled.length === 0) {
+    yield {
+      type: 'error',
+      data: { message: 'No API keys configured. Add at least one provider API key.' },
+      timestamp: Date.now(),
+    };
+    return;
+  }
+
+  // 2. Pre-debate health check — only include providers that respond
+  const agents = await healthCheckAgents(assembled);
+
+  // Notify client about agents that failed health check
+  for (const agent of assembled) {
+    if (!agents.find((a) => a.config.id === agent.config.id)) {
+      yield {
+        type: 'agent:unavailable',
+        data: {
+          agentId: agent.config.id,
+          displayName: agent.config.displayName,
+          reason: 'error',
+          message: `${agent.config.displayName} is not responding — excluded from this debate`,
+        },
+        timestamp: Date.now(),
+      };
+    }
+  }
 
   if (agents.length === 0) {
     yield {
       type: 'error',
-      data: { message: 'No API keys configured. Add at least one provider API key.' },
+      data: { message: 'No providers are currently responding. Please try again shortly.' },
       timestamp: Date.now(),
     };
     return;
@@ -51,16 +121,14 @@ export async function* runDebate(
     timestamp: Date.now(),
   };
 
-  // 2. Initialize psychological states
+  // 3. Initialize psychological states
   const psychEngine = new PsychologicalStateEngine();
   psychEngine.assignInitialStates(agents);
 
-  // 3. Set up turn management, memory, and search
-  // 2 rounds — each agent speaks twice, then Synapse summarizes (fits within 60s Vercel limit)
-  const turnManager = new TurnManager(agents, {
-    maxTurns: agents.length * 2,
-    maxRounds: 2,
-  });
+  // 4. Set up turn management, memory, and search
+  // Dynamic rounds: more agents = fewer rounds to fit within 60s Vercel limit
+  const { maxTurns, maxRounds } = computeDebateParams(agents.length);
+  const turnManager = new TurnManager(agents, { maxTurns, maxRounds });
   const memory = new ContextLog();
   const searchRouter = new SearchRouter();
   const momentumCalculator = new MomentumCalculator();
@@ -336,11 +404,9 @@ export async function* runContinuation(
   const psychEngine = new PsychologicalStateEngine();
   psychEngine.assignInitialStates(orderedAgents);
 
-  // 2 rounds so agents can respond to each other, not just give isolated takes
-  const turnManager = new TurnManager(orderedAgents, {
-    maxTurns: orderedAgents.length * 2,
-    maxRounds: 2,
-  });
+  // Dynamic rounds — more agents = fewer rounds to fit within 60s
+  const { maxTurns, maxRounds } = computeDebateParams(orderedAgents.length);
+  const turnManager = new TurnManager(orderedAgents, { maxTurns, maxRounds });
   const momentumCalculator = new MomentumCalculator();
   const quoteDetector = new QuoteDetector();
   const searchRouter = new SearchRouter();

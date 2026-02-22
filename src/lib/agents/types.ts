@@ -41,7 +41,9 @@ export type ProviderType =
   | 'openrouter'
   | 'cohere'
   | 'together'
-  | 'huggingface';
+  | 'huggingface'
+  | 'deepseek'
+  | 'mistral';
 
 export interface AIAgent {
   readonly config: AgentConfig;

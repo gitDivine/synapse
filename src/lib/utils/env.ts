@@ -9,6 +9,8 @@ const ENV_KEYS: Record<ProviderType, string> = {
   cohere: 'COHERE_API_KEY',
   together: 'TOGETHER_API_KEY',
   huggingface: 'HUGGINGFACE_API_KEY',
+  deepseek: 'DEEPSEEK_API_KEY',
+  mistral: 'MISTRAL_API_KEY',
 };
 
 export function getApiKey(provider: ProviderType): string {

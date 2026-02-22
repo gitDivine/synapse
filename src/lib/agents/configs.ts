@@ -16,6 +16,38 @@ export const AGENT_CONFIGS: AgentConfig[] = [
     maxTokens: 1024,
     temperature: 0.7,
   },
+  // DeepSeek — V3 (strong reasoning, coding, generous free tier)
+  {
+    id: 'deepseek-v3',
+    displayName: 'DeepSeek V3',
+    provider: 'deepseek',
+    model: 'deepseek-chat',
+    color: 'var(--agent-blue)',
+    avatar: 'DS',
+    capabilities: [
+      { id: 'general_reasoning', description: 'General reasoning', strength: 0.9 },
+      { id: 'code_reasoning', description: 'Code reasoning', strength: 0.95 },
+      { id: 'data_analysis', description: 'Data analysis', strength: 0.85 },
+    ],
+    maxTokens: 1024,
+    temperature: 0.7,
+  },
+  // Mistral — Small (fast, multilingual, concise)
+  {
+    id: 'mistral-small',
+    displayName: 'Mistral Small',
+    provider: 'mistral',
+    model: 'mistral-small-latest',
+    color: 'var(--agent-purple)',
+    avatar: 'MS',
+    capabilities: [
+      { id: 'general_reasoning', description: 'General reasoning', strength: 0.8 },
+      { id: 'multilingual', description: 'Multilingual understanding', strength: 0.9 },
+      { id: 'synthesis', description: 'Concise synthesis', strength: 0.8 },
+    ],
+    maxTokens: 1024,
+    temperature: 0.7,
+  },
   // Cohere — Command A (grounded factual reasoning)
   {
     id: 'cohere-command-a',
