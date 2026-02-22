@@ -21,6 +21,11 @@ const councilAssembler = new CouncilAssembler();
 const consensusDetector = new ConsensusDetector();
 const summaryGenerator = new SummaryGenerator();
 
+/** Consensus threshold — Synapse only synthesizes when agreement reaches this level */
+const CONSENSUS_THRESHOLD = 0.85;
+/** Maximum debate rounds before Synapse is forced to synthesize regardless */
+const MAX_DEBATE_ROUNDS = 5;
+
 /**
  * Compute debate parameters based on available agent count.
  * Fewer agents = more rounds. More agents = fewer rounds (fit within 60s).
@@ -185,79 +190,82 @@ export async function* runDebate(
     allQuoteLinks,
   );
 
-  // 6. Stream Synapse's verdict inline as a chat message
-  // Use dedicated Synapse agent (Gemini) — falls back to debate agent rotation if no Google key
-  const synapseAgent = createSynapseAgent();
-  const verdictAgent = synapseAgent ?? (() => {
-    const availableAgents = agents.filter((a) => !failedAgentIds.has(a.config.id));
-    const verdictPool = availableAgents.length > 0 ? availableAgents : agents;
-    return verdictPool[0 % verdictPool.length];
-  })();
-  const verdictMessageId = 'synapse-verdict-0';
+  // 6. Synapse verdict — only synthesize when the council reaches consensus.
+  // On intermediate rounds, agents keep debating without Synapse intervening.
+  // The client auto-continues rounds until consensus >= threshold or max rounds hit.
+  const shouldSynthesize = consensusScore >= CONSENSUS_THRESHOLD;
 
-  // Brief pause before Synapse verdict
-  if (synapseAgent) {
-    await new Promise((resolve) => setTimeout(resolve, 2000));
-  }
+  if (shouldSynthesize) {
+    const synapseAgent = createSynapseAgent();
+    const verdictAgent = synapseAgent ?? (() => {
+      const availableAgents = agents.filter((a) => !failedAgentIds.has(a.config.id));
+      const verdictPool = availableAgents.length > 0 ? availableAgents : agents;
+      return verdictPool[0 % verdictPool.length];
+    })();
+    const verdictMessageId = 'synapse-verdict-0';
 
-  yield {
-    type: 'agent:thinking',
-    data: { agentId: 'synapse', messageId: verdictMessageId, psychState: 'synthesizer' },
-    timestamp: Date.now(),
-  };
-
-  const verdictPrompt = buildVerdictPrompt(session.problem, memory, consensusScore, allResearchResults);
-  let verdictFailed = false;
-  for (let vAttempt = 0; vAttempt <= 1; vAttempt++) {
-    verdictFailed = false;
-    let verdictHasText = false;
-    try {
-      for await (const chunk of verdictAgent.stream(verdictPrompt)) {
-        if (chunk.type === 'text_delta') {
-          verdictHasText = true;
-          yield {
-            type: 'agent:chunk',
-            data: { agentId: 'synapse', messageId: verdictMessageId, content: chunk.content },
-            timestamp: Date.now(),
-          };
-        }
-        if (chunk.type === 'error') {
-          verdictFailed = true;
-          break;
-        }
-      }
-    } catch {
-      verdictFailed = true;
+    if (synapseAgent) {
+      await new Promise((resolve) => setTimeout(resolve, 2000));
     }
-    // Stream succeeded but returned no text — treat as failure
-    if (!verdictFailed && !verdictHasText) verdictFailed = true;
-    if (!verdictFailed) break;
-    if (vAttempt < 1) {
-      await new Promise((resolve) => setTimeout(resolve, 3000));
-    }
-  }
-  if (verdictFailed) {
+
     yield {
-      type: 'agent:chunk',
-      data: {
-        agentId: 'synapse',
-        messageId: verdictMessageId,
-        content: `The council discussed this across ${memory.length} turns. ${consensusScore >= 0.85 ? 'Strong consensus was reached.' : 'Multiple perspectives were explored.'} Feel free to ask me to dig deeper into any aspect.`,
-      },
+      type: 'agent:thinking',
+      data: { agentId: 'synapse', messageId: verdictMessageId, psychState: 'synthesizer' },
+      timestamp: Date.now(),
+    };
+
+    const verdictPrompt = buildVerdictPrompt(session.problem, memory, consensusScore, allResearchResults);
+    let verdictFailed = false;
+    for (let vAttempt = 0; vAttempt <= 1; vAttempt++) {
+      verdictFailed = false;
+      let verdictHasText = false;
+      try {
+        for await (const chunk of verdictAgent.stream(verdictPrompt)) {
+          if (chunk.type === 'text_delta') {
+            verdictHasText = true;
+            yield {
+              type: 'agent:chunk',
+              data: { agentId: 'synapse', messageId: verdictMessageId, content: chunk.content },
+              timestamp: Date.now(),
+            };
+          }
+          if (chunk.type === 'error') {
+            verdictFailed = true;
+            break;
+          }
+        }
+      } catch {
+        verdictFailed = true;
+      }
+      if (!verdictFailed && !verdictHasText) verdictFailed = true;
+      if (!verdictFailed) break;
+      if (vAttempt < 1) {
+        await new Promise((resolve) => setTimeout(resolve, 3000));
+      }
+    }
+    if (verdictFailed) {
+      yield {
+        type: 'agent:chunk',
+        data: {
+          agentId: 'synapse',
+          messageId: verdictMessageId,
+          content: `The council discussed this across ${memory.length} turns. Strong consensus was reached. Feel free to ask me to dig deeper into any aspect.`,
+        },
+        timestamp: Date.now(),
+      };
+    }
+
+    yield {
+      type: 'agent:done',
+      data: { agentId: 'synapse', messageId: verdictMessageId },
       timestamp: Date.now(),
     };
   }
 
-  yield {
-    type: 'agent:done',
-    data: { agentId: 'synapse', messageId: verdictMessageId },
-    timestamp: Date.now(),
-  };
-
   // Save transcript for continuation rounds
   sessionStore.update(sessionId, {
     debateTranscript: memory.getTranscript(),
-    summaryAgentId: verdictAgent.config.id,
+    summaryAgentId: agents[0]?.config.id ?? 'unknown',
   });
 
   // 7. Signal round complete with analytics
@@ -454,73 +462,75 @@ export async function* runContinuation(
   }));
   const influence = influenceScorer.score(messageInfos, [], consensusHistory, allQuoteLinks);
 
-  // Stream Synapse's updated verdict — use dedicated agent, fallback to debate agent rotation
-  const verdictAgent = synapseAgent ?? (() => {
-    const availableAgents = agents.filter((a) => !failedAgentIds.has(a.config.id));
-    const verdictPool = availableAgents.length > 0 ? availableAgents : agents;
-    return verdictPool[roundNumber % verdictPool.length];
-  })();
-  const verdictMessageId = `synapse-verdict-${roundNumber}`;
+  // Synapse verdict — only synthesize when consensus reached or this is the final round
+  const shouldSynthesize = consensusScore >= CONSENSUS_THRESHOLD || roundNumber >= MAX_DEBATE_ROUNDS - 1;
 
-  // Brief pause before Synapse verdict
-  if (synapseAgent) {
-    await new Promise((resolve) => setTimeout(resolve, 2000));
-  }
+  if (shouldSynthesize) {
+    const verdictAgent = synapseAgent ?? (() => {
+      const availableAgents = agents.filter((a) => !failedAgentIds.has(a.config.id));
+      const verdictPool = availableAgents.length > 0 ? availableAgents : agents;
+      return verdictPool[roundNumber % verdictPool.length];
+    })();
+    const verdictMessageId = `synapse-verdict-${roundNumber}`;
 
-  yield {
-    type: 'agent:thinking',
-    data: { agentId: 'synapse', messageId: verdictMessageId, psychState: 'synthesizer' },
-    timestamp: Date.now(),
-  };
-
-  const verdictPrompt = buildVerdictPrompt(problem, memory, consensusScore, allResearchResults);
-  let verdictFailed = false;
-  for (let vAttempt = 0; vAttempt <= 1; vAttempt++) {
-    verdictFailed = false;
-    let verdictHasText = false;
-    try {
-      for await (const chunk of verdictAgent.stream(verdictPrompt)) {
-        if (chunk.type === 'text_delta') {
-          verdictHasText = true;
-          yield {
-            type: 'agent:chunk',
-            data: { agentId: 'synapse', messageId: verdictMessageId, content: chunk.content },
-            timestamp: Date.now(),
-          };
-        }
-        if (chunk.type === 'error') {
-          verdictFailed = true;
-          break;
-        }
-      }
-    } catch {
-      verdictFailed = true;
+    if (synapseAgent) {
+      await new Promise((resolve) => setTimeout(resolve, 2000));
     }
-    // Stream succeeded but returned no text — treat as failure
-    if (!verdictFailed && !verdictHasText) verdictFailed = true;
-    if (!verdictFailed) break;
-    if (vAttempt < 1) {
-      await new Promise((resolve) => setTimeout(resolve, 3000));
-    }
-  }
 
-  if (verdictFailed) {
     yield {
-      type: 'agent:chunk',
-      data: {
-        agentId: 'synapse',
-        messageId: verdictMessageId,
-        content: `The council revisited this topic. Feel free to keep the conversation going or ask about a specific angle.`,
-      },
+      type: 'agent:thinking',
+      data: { agentId: 'synapse', messageId: verdictMessageId, psychState: 'synthesizer' },
+      timestamp: Date.now(),
+    };
+
+    const verdictPrompt = buildVerdictPrompt(problem, memory, consensusScore, allResearchResults);
+    let verdictFailed = false;
+    for (let vAttempt = 0; vAttempt <= 1; vAttempt++) {
+      verdictFailed = false;
+      let verdictHasText = false;
+      try {
+        for await (const chunk of verdictAgent.stream(verdictPrompt)) {
+          if (chunk.type === 'text_delta') {
+            verdictHasText = true;
+            yield {
+              type: 'agent:chunk',
+              data: { agentId: 'synapse', messageId: verdictMessageId, content: chunk.content },
+              timestamp: Date.now(),
+            };
+          }
+          if (chunk.type === 'error') {
+            verdictFailed = true;
+            break;
+          }
+        }
+      } catch {
+        verdictFailed = true;
+      }
+      if (!verdictFailed && !verdictHasText) verdictFailed = true;
+      if (!verdictFailed) break;
+      if (vAttempt < 1) {
+        await new Promise((resolve) => setTimeout(resolve, 3000));
+      }
+    }
+
+    if (verdictFailed) {
+      yield {
+        type: 'agent:chunk',
+        data: {
+          agentId: 'synapse',
+          messageId: verdictMessageId,
+          content: `The council revisited this topic. Feel free to keep the conversation going or ask about a specific angle.`,
+        },
+        timestamp: Date.now(),
+      };
+    }
+
+    yield {
+      type: 'agent:done',
+      data: { agentId: 'synapse', messageId: verdictMessageId },
       timestamp: Date.now(),
     };
   }
-
-  yield {
-    type: 'agent:done',
-    data: { agentId: 'synapse', messageId: verdictMessageId },
-    timestamp: Date.now(),
-  };
 
   yield {
     type: 'round:complete',
