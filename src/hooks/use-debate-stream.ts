@@ -40,6 +40,9 @@ type DebateStatus = 'connecting' | 'active' | 'idle' | 'error';
 
 const STALE_CHECK_INTERVAL_MS = 20_000;
 const STALE_THRESHOLD_MS = 45_000;
+const AUTO_CONSENSUS_THRESHOLD = 0.85;
+const MAX_AUTO_ROUNDS = 5;
+const AUTO_CONTINUE_MSG = 'Continue the discussion — the council hasn\'t reached consensus yet. Build on each other\'s points and try to converge on a conclusion.';
 
 export function useDebateStream(sessionId: string, problem?: string) {
   const [messages, setMessages] = useState<DebateMessage[]>([]);
@@ -70,6 +73,8 @@ export function useDebateStream(sessionId: string, problem?: string) {
   const continueConversationRef = useRef<(message: string, opts?: { skipUserMessage?: boolean; routing?: 'synapse' | 'council' }) => Promise<boolean>>(
     async () => false
   );
+  // Tracks whether the current round was auto-triggered (suppresses user:intervention echo)
+  const autoRoundActiveRef = useRef(false);
 
   // Keep statusRef in sync
   useEffect(() => {
@@ -219,6 +224,11 @@ export function useDebateStream(sessionId: string, problem?: string) {
       }
 
       case 'user:intervention':
+        // Suppress auto-continue system messages from appearing in the chat
+        if (autoRoundActiveRef.current && (data.content as string) === AUTO_CONTINUE_MSG) {
+          autoRoundActiveRef.current = false;
+          break;
+        }
         // Only add if not already in messages (continuation adds it client-side first)
         setMessages((prev) => {
           const exists = prev.some(
@@ -247,10 +257,8 @@ export function useDebateStream(sessionId: string, problem?: string) {
           influence: (data.influence as Record<string, number>) ?? {},
         };
         setRoundData(rd);
-        setRoundNumber((data.roundNumber as number) + 1);
-        setStatus('idle');
-        // Sync ref immediately so error handlers don't race
-        statusRef.current = 'idle';
+        const nextRound = (data.roundNumber as number) + 1;
+        setRoundNumber(nextRound);
         // Close EventSource — initial stream is done, continuations use fetch
         esRef.current?.close();
         // Stop stale detector — continuations use fetch with their own timeout
@@ -259,18 +267,31 @@ export function useDebateStream(sessionId: string, problem?: string) {
           staleIntervalRef.current = null;
         }
 
-        // === AUTO-CONTINUE: if user sent an intervention during this round, start new round ===
-        // This fires directly here (not via useEffect) so it's immune to React render timing.
-        // Uses continueConversationRef to always get the latest function reference.
+        // Priority 1: User intervention pending — start new round with their message
         if (pendingInterventionRef.current) {
           const pending = pendingInterventionRef.current;
           pendingInterventionRef.current = null;
           setInterventionQueued(false);
-          // Small delay for state to settle, then start new round
           setTimeout(() => {
             continueConversationRef.current(pending, { skipUserMessage: true });
           }, 800);
+          break;
         }
+
+        // Priority 2: Auto-continue if consensus not reached
+        const score = data.consensusScore as number;
+        if (score < AUTO_CONSENSUS_THRESHOLD && nextRound < MAX_AUTO_ROUNDS) {
+          // Don't go idle — keep status active, agents keep debating
+          autoRoundActiveRef.current = true;
+          setTimeout(() => {
+            continueConversationRef.current(AUTO_CONTINUE_MSG, { skipUserMessage: true });
+          }, 1000);
+          break;
+        }
+
+        // Otherwise: debate concluded — go idle, wait for user
+        setStatus('idle');
+        statusRef.current = 'idle';
         break;
       }
 
