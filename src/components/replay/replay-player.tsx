@@ -124,7 +124,7 @@ export function ReplayPlayer({
 
       {/* Label */}
       <p className="mt-1 text-center text-[10px] text-text-muted">
-        Replaying debate...
+        Replaying conversation...
       </p>
     </div>
   );

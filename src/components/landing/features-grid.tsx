@@ -11,7 +11,7 @@ const FEATURES = [
       </svg>
     ),
     title: 'Multi-Agent Council',
-    description: 'Diverse AI models from different providers form a debate panel with unique perspectives.',
+    description: 'Diverse AI models from different providers form a conversation panel with unique perspectives.',
   },
   {
     icon: (
@@ -41,7 +41,7 @@ const FEATURES = [
       </svg>
     ),
     title: 'Live Research',
-    description: 'Agents search the web mid-debate to back their arguments with real evidence.',
+    description: 'Agents search the web mid-conversation to back their arguments with real evidence.',
   },
   {
     icon: (
@@ -62,7 +62,7 @@ const FEATURES = [
       </svg>
     ),
     title: 'Shareable Replays',
-    description: 'Record every debate and share replay links with full playback controls.',
+    description: 'Record every conversation and share replay links with full playback controls.',
   },
 ];
 

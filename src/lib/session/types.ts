@@ -10,14 +10,23 @@ export interface ReplayEvent {
   elapsed: number;
 }
 
+export interface TranscriptEntry {
+  agentId: string;
+  displayName: string;
+  content: string;
+  psychState: string;
+}
+
 export interface DebateSession {
   problem: string;
   apiKeys: Partial<Record<ProviderType, string>>;
-  status: 'pending' | 'active' | 'completed' | 'error';
+  status: 'pending' | 'active' | 'completed' | 'idle' | 'error';
   createdAt: number;
   interventionQueue: UserIntervention[];
+  paused?: boolean;
   debateTranscript?: string;
   summaryAgentId?: string;
+  roundNumber?: number;
   reactions?: Record<string, Record<string, number>>;
   replayEvents?: ReplayEvent[];
 }

@@ -41,7 +41,7 @@ export function HeroSection() {
         <div className="inline-flex items-center gap-2 rounded-full border border-border bg-surface-raised px-3 py-1">
           <span className="h-1.5 w-1.5 rounded-full bg-accent" />
           <span className="text-xs font-medium text-text-secondary">
-            Multi-Agent AI Debate Platform
+            Multi-Agent AI Conversation Platform
           </span>
         </div>
 
@@ -54,7 +54,7 @@ export function HeroSection() {
 
         {/* Subheading */}
         <p className="mx-auto max-w-xl text-base leading-relaxed text-text-secondary sm:text-lg">
-          Submit any problem. A council of AI agents will debate, challenge,
+          Submit any problem. A council of AI agents will discuss, challenge,
           and converge on the strongest answer — one that survives real scrutiny.
         </p>
 
@@ -69,7 +69,7 @@ export function HeroSection() {
               'w-full sm:w-auto'
             )}
           >
-            Start a Debate
+            Start a Conversation
             <span aria-hidden="true">&rarr;</span>
           </a>
           <a

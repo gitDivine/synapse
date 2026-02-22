@@ -16,11 +16,11 @@ const geistMono = Geist_Mono({
 export const metadata: Metadata = {
   title: 'SYNAPSE — Where Minds Collide to Find Truth',
   description:
-    'A multi-agent AI debate platform where diverse artificial intelligences argue, critique, and converge on the strongest possible answer to your problem.',
+    'A multi-agent AI conversation platform where diverse artificial intelligences discuss, critique, and converge on the strongest possible answer to your problem.',
   openGraph: {
     title: 'SYNAPSE — Where Minds Collide to Find Truth',
     description:
-      'Watch AI agents debate, challenge, and converge on answers to complex problems.',
+      'Watch AI agents discuss, challenge, and converge on answers to complex problems.',
     siteName: 'SYNAPSE',
     type: 'website',
     locale: 'en_US',
@@ -29,7 +29,7 @@ export const metadata: Metadata = {
     card: 'summary_large_image',
     title: 'SYNAPSE — Where Minds Collide to Find Truth',
     description:
-      'Watch AI agents debate, challenge, and converge on answers to complex problems.',
+      'Watch AI agents discuss, challenge, and converge on answers to complex problems.',
   },
 };
 

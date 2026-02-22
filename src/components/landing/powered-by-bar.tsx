@@ -1,12 +1,8 @@
 import { AnimateOnScroll } from './animate-on-scroll';
 
 const PROVIDERS = [
-  'Anthropic',
-  'OpenAI',
-  'Google AI',
   'Groq',
   'Cohere',
-  'Together',
   'HuggingFace',
 ];
 

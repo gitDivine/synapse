@@ -17,6 +17,8 @@ export class TurnManager {
   private roundIndex = 0;
   private converged = false;
   private turnOrder: string[];
+  /** Agents that have successfully spoken at least once */
+  private spokenAgentIds = new Set<string>();
 
   constructor(agents: AIAgent[], options?: Partial<TurnManagerOptions>) {
     this.agents = agents;
@@ -30,6 +32,16 @@ export class TurnManager {
 
   get round(): number {
     return Math.floor(this.turnNumber / this.agents.length);
+  }
+
+  /** Whether every agent has spoken at least once */
+  get allAgentsSpoken(): boolean {
+    return this.spokenAgentIds.size >= this.agents.length;
+  }
+
+  /** Record that an agent successfully contributed a message */
+  markSpoken(agentId: string): void {
+    this.spokenAgentIds.add(agentId);
   }
 
   nextAgent(): AIAgent {
@@ -53,6 +65,12 @@ export class TurnManager {
   }
 
   isComplete(): boolean {
+    // Never end the debate until every council member has spoken at least once
+    if (!this.allAgentsSpoken) {
+      // Still respect the hard maxTurns cap to avoid infinite loops
+      return this.turnNumber >= this.options.maxTurns;
+    }
+
     return (
       this.converged ||
       this.turnNumber >= this.options.maxTurns ||

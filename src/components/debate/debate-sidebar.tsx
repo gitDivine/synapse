@@ -12,7 +12,7 @@ interface DebateSidebarProps {
   activeAgent: string | null;
   consensusScore: number;
   currentTurn: number;
-  status: 'connecting' | 'active' | 'ended' | 'error';
+  status: 'connecting' | 'active' | 'idle' | 'error';
   momentum: number;
   momentumDirection: 'heating' | 'steady' | 'cooling';
   showInfluence: boolean;
@@ -46,7 +46,7 @@ export function DebateSidebar({
       {/* Debate progress */}
       <div className="border-b border-border p-4">
         <h3 className="mb-1 text-xs font-semibold uppercase tracking-wider text-text-muted">
-          Debate Progress
+          Conversation Progress
         </h3>
         <div className="mt-3 flex items-center gap-2">
           <div
@@ -55,15 +55,17 @@ export function DebateSidebar({
               backgroundColor:
                 status === 'active'
                   ? '#22c55e'
-                  : status === 'ended'
-                    ? '#6366f1'
+                  : status === 'idle'
+                    ? '#eab308'
                     : status === 'error'
                       ? '#ef4444'
                       : '#71717a',
             }}
           />
-          <span className="text-xs text-text-secondary capitalize">{status}</span>
-          {status === 'active' && (
+          <span className="text-xs text-text-secondary capitalize">
+            {status === 'idle' ? 'Awaiting input' : status}
+          </span>
+          {(status === 'active' || status === 'idle') && (
             <span className="ml-auto text-xs tabular-nums text-text-muted">
               Turn {currentTurn}
             </span>
@@ -85,8 +87,8 @@ export function DebateSidebar({
         />
       </div>
 
-      {/* Post-debate actions */}
-      {status === 'ended' && (
+      {/* Post-round actions */}
+      {status === 'idle' && (
         <div className="border-b border-border p-4 space-y-2">
           <button
             onClick={onToggleInfluence}

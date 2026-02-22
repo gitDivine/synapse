@@ -4,7 +4,7 @@ import { motion } from 'motion/react';
 
 interface ConsensusMeterProps {
   score: number;
-  status: 'connecting' | 'active' | 'ended' | 'error';
+  status: 'connecting' | 'active' | 'idle' | 'error';
 }
 
 export function ConsensusMeter({ score, status }: ConsensusMeterProps) {
@@ -18,7 +18,7 @@ export function ConsensusMeter({ score, status }: ConsensusMeterProps) {
   };
 
   const getLabel = () => {
-    if (status !== 'active' && status !== 'ended') return 'Waiting...';
+    if (status !== 'active' && status !== 'idle') return 'Waiting...';
     if (score >= 0.85) return 'Strong consensus';
     if (score >= 0.6) return 'Converging';
     if (score >= 0.3) return 'Debating';

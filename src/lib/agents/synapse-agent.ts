@@ -1,21 +1,34 @@
-import type {
-  AIAgent,
-  AgentConfig,
-  AgentFactory,
-  AgentMessage,
-  AgentStreamChunk,
-} from '../types';
-import { agentRegistry } from '../registry';
+import type { AIAgent, AgentConfig, AgentMessage, AgentStreamChunk, TokenUsage } from './types';
 
-const FETCH_TIMEOUT_MS = 12_000;
+const FETCH_TIMEOUT_MS = 15_000; // Synapse gets a bit longer since its output is larger
 
-class GoogleAgent implements AIAgent {
-  readonly config: AgentConfig;
+/**
+ * Dedicated Synapse moderator agent powered by Google Gemini 2.5 Flash.
+ * This is NOT a debate agent — it's the synthesis/moderator brain that:
+ * 1. Analyzes and summarizes what the debate agents discussed
+ * 2. Delivers executive summaries to the user
+ * 3. Responds to @Synapse mentions with its own voice
+ */
+export class SynapseAgent implements AIAgent {
+  readonly config: AgentConfig = {
+    id: 'synapse',
+    displayName: 'Synapse',
+    provider: 'google',
+    model: 'gemini-2.5-flash',
+    color: 'var(--accent)',
+    avatar: 'S',
+    capabilities: [
+      { id: 'synthesis', description: 'Multi-perspective synthesis', strength: 0.95 },
+      { id: 'summarization', description: 'Executive summarization', strength: 0.95 },
+    ],
+    maxTokens: 2048,
+    temperature: 0.6,
+  };
+
   private apiKey: string;
   private baseUrl = 'https://generativelanguage.googleapis.com/v1beta';
 
-  constructor(config: AgentConfig, apiKey: string) {
-    this.config = config;
+  constructor(apiKey: string) {
     this.apiKey = apiKey;
   }
 
@@ -34,7 +47,7 @@ class GoogleAgent implements AIAgent {
     };
   }
 
-  async complete(messages: AgentMessage[]) {
+  async complete(messages: AgentMessage[]): Promise<{ content: string; usage: TokenUsage }> {
     const { systemInstruction, contents } = this.toGeminiMessages(messages);
     const url = `${this.baseUrl}/models/${this.config.model}:generateContent?key=${this.apiKey}`;
     const controller = new AbortController();
@@ -57,12 +70,11 @@ class GoogleAgent implements AIAgent {
 
       if (!res.ok) {
         const err = await res.text();
-        throw new Error(`Google AI API error: ${res.status} ${err}`);
+        throw new Error(`Synapse (Gemini) API error: ${res.status} ${err}`);
       }
 
       const data = await res.json();
-      const text =
-        data.candidates?.[0]?.content?.parts?.[0]?.text ?? '';
+      const text = data.candidates?.[0]?.content?.parts?.[0]?.text ?? '';
       const usage = data.usageMetadata;
 
       return {
@@ -102,8 +114,8 @@ class GoogleAgent implements AIAgent {
     } catch (err) {
       clearTimeout(timeout);
       const msg = err instanceof Error && err.name === 'AbortError'
-        ? 'Google AI API timed out'
-        : `Google AI API error: ${err}`;
+        ? 'Synapse (Gemini) API timed out'
+        : `Synapse (Gemini) API error: ${err}`;
       yield { type: 'error', content: msg };
       return;
     }
@@ -112,7 +124,7 @@ class GoogleAgent implements AIAgent {
 
     if (!res.ok) {
       const err = await res.text();
-      yield { type: 'error', content: `Google AI API error: ${res.status} ${err}` };
+      yield { type: 'error', content: `Synapse (Gemini) API error: ${res.status} ${err}` };
       return;
     }
 
@@ -123,7 +135,7 @@ class GoogleAgent implements AIAgent {
     let chunkTimer: ReturnType<typeof setTimeout> | null = null;
     const resetChunkTimer = () => {
       if (chunkTimer) clearTimeout(chunkTimer);
-      chunkTimer = setTimeout(() => { reader.cancel(); }, 8_000);
+      chunkTimer = setTimeout(() => { reader.cancel(); }, 10_000);
     };
     resetChunkTimer();
 
@@ -162,7 +174,7 @@ class GoogleAgent implements AIAgent {
   async validateApiKey(): Promise<boolean> {
     try {
       const res = await fetch(
-        `${this.baseUrl}/models?key=${this.apiKey}`
+        `${this.baseUrl}/models?key=${this.apiKey}`,
       );
       return res.ok;
     } catch {
@@ -171,9 +183,12 @@ class GoogleAgent implements AIAgent {
   }
 }
 
-const factory: AgentFactory = (config, apiKey) =>
-  new GoogleAgent(config, apiKey);
-
-export function register() {
-  agentRegistry.registerProvider('google', factory);
+/**
+ * Create the Synapse agent if GOOGLE_AI_API_KEY is available.
+ * Returns null if no key — orchestrator falls back to debate agent rotation.
+ */
+export function createSynapseAgent(): SynapseAgent | null {
+  const apiKey = process.env.GOOGLE_AI_API_KEY;
+  if (!apiKey) return null;
+  return new SynapseAgent(apiKey);
 }

@@ -25,6 +25,32 @@ interface MessageBubbleProps {
   influenceScore?: number;
 }
 
+/** Strip <think>...</think> blocks (e.g. Qwen's chain-of-thought) from displayed text */
+function stripThinkBlocks(text: string): string {
+  // Remove complete <think>...</think> blocks (including multiline)
+  let cleaned = text.replace(/<think>[\s\S]*?<\/think>\s*/g, '');
+  // Remove an unclosed <think> block at the end (still streaming)
+  cleaned = cleaned.replace(/<think>[\s\S]*$/, '');
+  return cleaned.trimStart();
+}
+
+/** Convert markdown links [text](url) to clickable <a> tags */
+function renderWithLinks(text: string): React.ReactNode {
+  const parts = text.split(/(\[[^\]]+\]\([^)]+\))/g);
+  if (parts.length === 1) return text;
+  return parts.map((part, i) => {
+    const match = part.match(/^\[([^\]]+)\]\(([^)]+)\)$/);
+    if (match) {
+      return (
+        <a key={i} href={match[2]} target="_blank" rel="noopener noreferrer" className="text-accent hover:underline break-all">
+          {match[1]}
+        </a>
+      );
+    }
+    return part;
+  });
+}
+
 function MessageBubbleInner({
   messageId,
   agentName,
@@ -115,7 +141,7 @@ function MessageBubbleInner({
           )}
         </div>
         <div className={`whitespace-pre-wrap text-sm leading-relaxed ${isResearch ? 'text-text-secondary font-mono text-xs' : 'text-neutral-200'}`}>
-          {content}
+          {renderWithLinks(stripThinkBlocks(content))}
           {isStreaming && (
             <motion.span
               animate={{ opacity: [1, 0] }}

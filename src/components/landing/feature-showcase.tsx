@@ -198,7 +198,7 @@ function MockReplayPlayer() {
 
 const SECTIONS = [
   {
-    title: 'Watch the Debate Unfold',
+    title: 'Watch the Conversation Unfold',
     description:
       'Follow the conversation in real-time as AI agents present arguments, challenge each other, and build on ideas. React with emojis, see reply threading, and intervene as the moderator whenever you want.',
     mock: <MockMessageFeed />,
@@ -206,14 +206,14 @@ const SECTIONS = [
   {
     title: 'Track Real-Time Dynamics',
     description:
-      'Monitor consensus as it forms, watch debate momentum shift between heating and cooling, and see each agent\'s psychological state evolve throughout the discussion.',
+      'Monitor consensus as it forms, watch conversation momentum shift between heating and cooling, and see each agent\'s psychological state evolve throughout the discussion.',
     mock: <MockSidebar />,
     reverse: true,
   },
   {
-    title: 'Replay Any Debate',
+    title: 'Replay Any Conversation',
     description:
-      'Every debate is automatically recorded. Share replay links with anyone — they can watch the full debate unfold with adjustable playback speed and full timeline control.',
+      'Every conversation is automatically recorded. Share replay links with anyone — they can watch the full conversation unfold with adjustable playback speed and full timeline control.',
     mock: <MockReplayPlayer />,
   },
 ];

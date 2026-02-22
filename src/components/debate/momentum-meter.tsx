@@ -5,7 +5,7 @@ import { motion } from 'motion/react';
 interface MomentumMeterProps {
   momentum: number;
   direction: 'heating' | 'steady' | 'cooling';
-  status: 'connecting' | 'active' | 'ended' | 'error';
+  status: 'connecting' | 'active' | 'idle' | 'error';
 }
 
 export function MomentumMeter({ momentum, direction, status }: MomentumMeterProps) {
@@ -19,7 +19,7 @@ export function MomentumMeter({ momentum, direction, status }: MomentumMeterProp
   };
 
   const getLabel = () => {
-    if (status !== 'active' && status !== 'ended') return 'Waiting...';
+    if (status !== 'active' && status !== 'idle') return 'Waiting...';
     if (momentum >= 0.7) return 'Intense';
     if (momentum >= 0.4) return 'Active';
     if (momentum >= 0.15) return 'Cooling';
@@ -37,7 +37,7 @@ export function MomentumMeter({ momentum, direction, status }: MomentumMeterProp
     <div
       className="space-y-1.5"
       role="meter"
-      aria-label={`Debate momentum: ${percentage}%, ${getLabel()}`}
+      aria-label={`Conversation momentum: ${percentage}%, ${getLabel()}`}
       aria-valuenow={percentage}
       aria-valuemin={0}
       aria-valuemax={100}

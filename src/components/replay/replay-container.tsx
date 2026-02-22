@@ -5,7 +5,6 @@ import { useReplayEngine } from '@/hooks/use-replay-engine';
 import { Header } from '@/components/shared/header';
 import { MessageFeed } from '@/components/debate/message-feed';
 import { DebateSidebar } from '@/components/debate/debate-sidebar';
-import { SummaryPanel } from '@/components/debate/summary-panel';
 import { ReplayPlayer } from './replay-player';
 import { cn } from '@/lib/utils/cn';
 
@@ -32,7 +31,6 @@ export function ReplayContainer({ sessionId }: ReplayContainerProps) {
     status,
     activeAgent,
     consensusScore,
-    summary,
     momentum,
     momentumDirection,
   } = useReplayEngine(sessionId);
@@ -67,7 +65,7 @@ export function ReplayContainer({ sessionId }: ReplayContainerProps) {
               href="/"
               className="mt-4 inline-block rounded-lg bg-accent px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-accent-hover"
             >
-              Start a new debate
+              Start a new conversation
             </a>
           </div>
         </div>
@@ -75,8 +73,8 @@ export function ReplayContainer({ sessionId }: ReplayContainerProps) {
     );
   }
 
-  // Build influence scores from summary data
-  const influenceScores = summary?.influence;
+  // Map replay's 'ended' status to sidebar-compatible status
+  const sidebarStatus = status === 'ended' ? 'idle' : status;
 
   return (
     <div className="flex h-dvh flex-col bg-background">
@@ -101,14 +99,10 @@ export function ReplayContainer({ sessionId }: ReplayContainerProps) {
               messages={messages}
               agents={agents}
               activeAgent={activeAgent}
-              status={status}
-              influenceScores={influenceScores}
+              status={sidebarStatus}
               showInfluence={status === 'ended'}
             />
           </div>
-
-          {/* Summary panel — shown after replay completes */}
-          {summary && <SummaryPanel summary={summary} agents={agents} />}
         </div>
 
         {/* Mobile sidebar toggle */}
@@ -136,7 +130,7 @@ export function ReplayContainer({ sessionId }: ReplayContainerProps) {
           />
         )}
 
-        {/* Sidebar — responsive: slide-in on mobile, always visible on desktop */}
+        {/* Sidebar */}
         {agents.length > 0 && (
           <div
             className={cn(
@@ -149,7 +143,7 @@ export function ReplayContainer({ sessionId }: ReplayContainerProps) {
               activeAgent={activeAgent}
               consensusScore={consensusScore}
               currentTurn={messages.filter((m) => m.complete && !m.isUser).length}
-              status={status}
+              status={sidebarStatus}
               momentum={momentum}
               momentumDirection={momentumDirection}
               showInfluence={status === 'ended'}

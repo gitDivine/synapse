@@ -5,47 +5,62 @@ import { useDebateStream } from '@/hooks/use-debate-stream';
 import { Header } from '@/components/shared/header';
 import { MessageFeed } from './message-feed';
 import { DebateSidebar } from './debate-sidebar';
-import { SummaryPanel } from './summary-panel';
 import { UserInterveneBar } from './user-intervene-bar';
-import { FollowupBar } from './followup-bar';
 import { useToast } from '@/components/shared/toast';
 import { cn } from '@/lib/utils/cn';
 
 interface DebateContainerProps {
   sessionId: string;
+  problem?: string;
 }
 
-export function DebateContainer({ sessionId }: DebateContainerProps) {
+export function DebateContainer({ sessionId, problem }: DebateContainerProps) {
   const {
     messages,
     agents,
     status,
     activeAgent,
     consensusScore,
-    summary,
     error,
     sendIntervention,
-    askFollowup,
-    followupResponse,
-    followupLoading,
+    sendPause,
+    sendUnpause,
+    continueConversation,
+    interventionQueued,
     momentum,
     momentumDirection,
     reactions,
     showInfluence,
     setShowInfluence,
     sendReaction,
-  } = useDebateStream(sessionId);
+    roundData,
+  } = useDebateStream(sessionId, problem);
 
   const { toast } = useToast();
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
-  const isDebateActive = status === 'active';
-  const influenceScores = summary?.influence;
+  const influenceScores = roundData?.influence;
 
   // Toast on error
   useEffect(() => {
     if (error) toast(error, 'error');
   }, [error, toast]);
+
+  // Determine input bar mode
+  const isActive = status === 'active';
+  const isIdle = status === 'idle';
+  const showInput = isActive || isIdle;
+
+  const handleSend = async (message: string, routing?: 'synapse' | 'council') => {
+    if (isActive) {
+      return sendIntervention(message);
+    }
+    if (isIdle) {
+      await continueConversation(message, { routing: routing ?? 'council' });
+      return true;
+    }
+    return false;
+  };
 
   return (
     <div className="flex h-dvh flex-col bg-background">
@@ -68,29 +83,6 @@ export function DebateContainer({ sessionId }: DebateContainerProps) {
             />
           </div>
 
-          {/* Summary loading skeleton */}
-          {status === 'ended' && !summary && (
-            <div className="mx-auto w-full max-w-3xl border-t border-border bg-surface-raised p-6">
-              <div className="space-y-3">
-                <div className="h-4 w-48 rounded bg-surface-overlay animate-shimmer" />
-                <div className="h-20 w-full rounded-lg bg-surface-overlay animate-shimmer" />
-                <div className="h-4 w-32 rounded bg-surface-overlay animate-shimmer" />
-              </div>
-            </div>
-          )}
-
-          {/* Summary panel — shown after debate ends */}
-          {summary && <SummaryPanel summary={summary} agents={agents} />}
-
-          {/* Follow-up bar — shown after debate ends */}
-          {status === 'ended' && (
-            <FollowupBar
-              onAsk={askFollowup}
-              response={followupResponse}
-              loading={followupLoading}
-            />
-          )}
-
           {/* Error banner */}
           {error && (
             <div className="border-t border-error/20 bg-error/5 px-4 py-2 text-center text-sm text-error">
@@ -98,11 +90,13 @@ export function DebateContainer({ sessionId }: DebateContainerProps) {
             </div>
           )}
 
-          {/* User intervention bar — active during debate */}
-          {isDebateActive && (
+          {/* Unified input bar — visible during active and idle states */}
+          {showInput && (
             <UserInterveneBar
-              onSend={sendIntervention}
-              disabled={!isDebateActive}
+              onSend={handleSend}
+              disabled={false}
+              mode={isIdle ? 'continue' : 'intervene'}
+              interventionQueued={interventionQueued}
             />
           )}
         </div>
@@ -132,7 +126,7 @@ export function DebateContainer({ sessionId }: DebateContainerProps) {
           />
         )}
 
-        {/* Sidebar — responsive: slide-in on mobile, always visible on desktop */}
+        {/* Sidebar */}
         {agents.length > 0 ? (
           <div
             className={cn(
@@ -154,7 +148,6 @@ export function DebateContainer({ sessionId }: DebateContainerProps) {
             />
           </div>
         ) : (
-          /* Sidebar connecting skeleton — desktop only */
           <aside className="hidden w-64 flex-col border-l border-border bg-surface-raised md:flex">
             <div className="border-b border-border p-4">
               <div className="mb-2 h-3 w-24 rounded bg-surface-overlay animate-shimmer" />

@@ -10,7 +10,7 @@ export function Footer() {
             </div>
             <div>
               <span className="text-sm font-semibold text-text-primary">SYNAPSE</span>
-              <span className="ml-2 text-xs text-text-muted">Multi-Agent AI Debate Platform</span>
+              <span className="ml-2 text-xs text-text-muted">Multi-Agent AI Conversation Platform</span>
             </div>
           </div>
 

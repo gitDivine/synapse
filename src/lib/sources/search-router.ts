@@ -8,7 +8,7 @@ import { searchSources } from './registry';
  */
 export class SearchRouter {
   private searchCount = 0;
-  private readonly maxSearchesPerDebate = 6;
+  private readonly maxSearchesPerDebate = 8;
 
   /**
    * Analyze the latest turn and decide whether external search is needed.
@@ -81,25 +81,38 @@ export class SearchRouter {
     return `\n--- LIVE RESEARCH RESULTS ---\n${lines.join('\n\n')}\n--- END RESEARCH ---\n`;
   }
 
+  /**
+   * Check which API-key-gated sources are available at runtime.
+   * Sources without keys silently return [] but we can be smarter
+   * by routing to sources we know are configured.
+   */
+  private getAvailableWebSearch(): SourceId {
+    if (process.env.BRAVE_SEARCH_API_KEY) return 'brave';
+    if (process.env.SERPER_API_KEY) return 'serper';
+    if (process.env.TAVILY_API_KEY) return 'tavily';
+    return 'duckduckgo'; // fallback — instant answers only
+  }
+
   private detectSearchSignals(content: string): { sources: SourceId[]; reason: string } {
     const sources: SourceId[] = [];
     const reasons: string[] = [];
+    const webSearch = this.getAvailableWebSearch();
 
     // Contestable claims — things that need verification
     if (/\b(studies show|research suggests|according to|data indicates|evidence suggests|experts say)\b/.test(content)) {
-      sources.push('wikipedia', 'pubmed', 'arxiv');
+      sources.push(webSearch, 'wikipedia', 'pubmed');
       reasons.push('Contestable claim detected — needs verification');
     }
 
     // Recency signals — needs current information
     if (/\b(latest|recent|current|2024|2025|2026|trending|new|updated|nowadays)\b/.test(content)) {
-      sources.push('duckduckgo', 'reddit', 'hackernews');
+      sources.push(webSearch, 'reddit', 'hackernews');
       reasons.push('Recency signal — needs current data');
     }
 
     // Technical/code topics
     if (/\b(code|programming|library|framework|api|algorithm|implementation|software|developer)\b/.test(content)) {
-      sources.push('stackexchange', 'github');
+      sources.push('stackexchange', 'github', webSearch);
       reasons.push('Technical topic — needs code/implementation context');
     }
 
@@ -111,14 +124,20 @@ export class SearchRouter {
 
     // Community opinion needed
     if (/\b(people think|community|opinion|experience|real.world|anecdot|review|recommend)\b/.test(content)) {
-      sources.push('reddit', 'hackernews');
+      sources.push('reddit', 'hackernews', webSearch);
       reasons.push('Community perspective needed');
     }
 
     // General knowledge gap
     if (/\b(what is|who is|how does|definition|explain|history of)\b/.test(content)) {
-      sources.push('wikipedia', 'duckduckgo');
+      sources.push(webSearch, 'wikipedia');
       reasons.push('Knowledge gap — needs factual grounding');
+    }
+
+    // Product / app / brand lookup (trending topics, niche products)
+    if (/\b(app|product|brand|company|startup|platform|service|tool|website|mobile)\b/.test(content)) {
+      sources.push(webSearch, 'reddit');
+      reasons.push('Product/brand lookup — needs web search');
     }
 
     // Deduplicate sources

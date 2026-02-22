@@ -4,7 +4,6 @@ import { useState, useEffect, useRef, useCallback } from 'react';
 import type {
   DebateMessage,
   AgentInfo,
-  DebateSummary,
   MessageReplyTo,
 } from '@/hooks/use-debate-stream';
 
@@ -43,7 +42,6 @@ export function useReplayEngine(sessionId: string) {
   const [status, setStatus] = useState<DebateStatus>('connecting');
   const [activeAgent, setActiveAgent] = useState<string | null>(null);
   const [consensusScore, setConsensusScore] = useState(0);
-  const [summary, setSummary] = useState<DebateSummary | null>(null);
   const [momentum, setMomentum] = useState(0);
   const [momentumDirection, setMomentumDirection] = useState<'heating' | 'steady' | 'cooling'>('steady');
 
@@ -186,6 +184,21 @@ export function useReplayEngine(sessionId: string) {
         break;
       }
 
+      case 'agent:unavailable':
+        setMessages((prev) => [
+          ...prev,
+          {
+            id: `unavailable-${Date.now()}`,
+            agentId: d.agentId as string,
+            content: d.message as string,
+            complete: true,
+            psychState: 'unavailable',
+            timestamp: Date.now(),
+            isUnavailable: true,
+          },
+        ]);
+        break;
+
       case 'user:intervention':
         setMessages((prev) => [
           ...prev,
@@ -202,10 +215,11 @@ export function useReplayEngine(sessionId: string) {
         break;
 
       case 'debate:summary':
-        setSummary(d as unknown as DebateSummary);
+        // Legacy: old replays emitted structured summaries — now verdict is inline
         break;
 
       case 'debate:end':
+      case 'round:complete':
         setStatus('ended');
         break;
     }
@@ -218,7 +232,6 @@ export function useReplayEngine(sessionId: string) {
     setStatus('connecting');
     setActiveAgent(null);
     setConsensusScore(0);
-    setSummary(null);
     setMomentum(0);
     setMomentumDirection('steady');
   }, []);
@@ -342,7 +355,6 @@ export function useReplayEngine(sessionId: string) {
     status,
     activeAgent,
     consensusScore,
-    summary,
     momentum,
     momentumDirection,
   };

@@ -20,7 +20,17 @@ export async function POST(
   }
 
   const body = await req.json();
-  const { message } = body;
+  const { message, type } = body;
+
+  // Handle pause/unpause signals (user clicked Intervene / Cancel)
+  if (type === 'pause') {
+    sessionStore.setPaused(sessionId, true);
+    return NextResponse.json({ paused: true });
+  }
+  if (type === 'unpause') {
+    sessionStore.setPaused(sessionId, false);
+    return NextResponse.json({ paused: false });
+  }
 
   if (!message || typeof message !== 'string' || message.trim().length === 0) {
     return NextResponse.json(

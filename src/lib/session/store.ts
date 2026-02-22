@@ -21,10 +21,21 @@ class SessionStore {
     }
   }
 
+  setPaused(id: string, paused: boolean): void {
+    const session = this.sessions.get(id);
+    if (session) session.paused = paused;
+  }
+
+  isPaused(id: string): boolean {
+    return this.sessions.get(id)?.paused ?? false;
+  }
+
   pushIntervention(id: string, intervention: UserIntervention): boolean {
     const session = this.sessions.get(id);
     if (!session || session.status !== 'active') return false;
     session.interventionQueue.push(intervention);
+    // Clear pause when a real message arrives
+    session.paused = false;
     return true;
   }
 

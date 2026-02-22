@@ -20,10 +20,10 @@ export function CtaSection() {
         body: JSON.stringify({ problem: problem.trim() }),
       });
 
-      if (!res.ok) throw new Error('Failed to create debate');
+      if (!res.ok) throw new Error('Failed to create conversation');
 
       const { sessionId } = await res.json();
-      router.push(`/debate/${sessionId}`);
+      router.push(`/debate/${sessionId}?p=${encodeURIComponent(problem.trim())}`);
     } catch {
       setIsSubmitting(false);
     }
@@ -37,7 +37,7 @@ export function CtaSection() {
             Ready to find truth?
           </h2>
           <p className="text-base text-text-secondary">
-            Describe your problem and let the council debate.
+            Describe your problem and let the council discuss.
           </p>
         </div>
 
@@ -83,7 +83,7 @@ export function CtaSection() {
                 Assembling Council...
               </>
             ) : (
-              'Start Debate'
+              'Start Conversation'
             )}
           </button>
 

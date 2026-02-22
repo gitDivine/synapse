@@ -5,19 +5,19 @@ const STEPS = [
     number: 1,
     title: 'Submit Your Problem',
     description:
-      'Describe any challenge, question, or dilemma. From technical decisions to philosophical debates.',
+      'Describe any challenge, question, or dilemma. From technical decisions to philosophical discussions.',
   },
   {
     number: 2,
     title: 'Council Assembles',
     description:
-      'AI agents with unique personalities and thinking styles form a debate panel tailored to your problem.',
+      'AI agents with unique personalities and thinking styles form a conversation panel tailored to your problem.',
   },
   {
     number: 3,
     title: 'Truth Emerges',
     description:
-      'Watch agents debate, challenge, and converge in real-time. Get a final verdict that survives scrutiny.',
+      'Watch agents discuss, challenge, and converge in real-time. Get a final verdict that survives scrutiny.',
   },
 ];
 

@@ -3,16 +3,15 @@ export type SSEEventType =
   | 'agent:thinking'
   | 'agent:chunk'
   | 'agent:done'
+  | 'agent:unavailable'
   | 'psych:state_change'
   | 'consensus:update'
   | 'research:results'
-  | 'debate:summary'
-  | 'debate:end'
+  | 'round:complete'
   | 'user:intervention'
-  | 'followup:chunk'
-  | 'followup:done'
   | 'momentum:update'
   | 'quote:linked'
+  | 'turn:pause'
   | 'heartbeat'
   | 'error';
 
@@ -53,19 +52,17 @@ export interface ConsensusUpdateData {
   score: number;
 }
 
-export interface DebateSummaryData {
-  answer: string;
-  confidence: number;
-  keyMoments: Array<{
-    agentId: string;
+export interface RoundCompleteData {
+  roundNumber: number;
+  consensusScore: number;
+  consensusHistory: Array<{ turn: number; score: number }>;
+  influence: Record<string, number>;
+  quoteLinks: Array<{
+    sourceMessageId: string;
+    targetMessageId: string;
+    agentName: string;
     excerpt: string;
-    significance: string;
   }>;
-  dissent: Array<{
-    agentId: string;
-    position: string;
-  }>;
-  openQuestions: string[];
 }
 
 export interface MomentumUpdateData {

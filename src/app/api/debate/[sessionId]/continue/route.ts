@@ -1,11 +1,11 @@
 import { NextRequest } from 'next/server';
-import { sessionStore } from '@/lib/session/store';
 import { initializeAgents } from '@/lib/agents/init';
 import { encodeSSE } from '@/lib/streaming/sse-encoder';
 import { getAllApiKeys } from '@/lib/utils/env';
-import { runDebate } from '@/lib/orchestrator/orchestrator';
+import { runContinuation } from '@/lib/orchestrator/orchestrator';
+import { sessionStore } from '@/lib/session/store';
 import type { SSEEvent } from '@/lib/streaming/event-types';
-import type { ReplayEvent } from '@/lib/session/types';
+import type { TranscriptEntry } from '@/lib/session/types';
 
 export const dynamic = 'force-dynamic';
 export const maxDuration = 60;
@@ -22,33 +22,56 @@ function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T> {
   ]);
 }
 
-export async function GET(
+export async function POST(
   req: NextRequest,
   { params }: { params: Promise<{ sessionId: string }> }
 ) {
   const { sessionId } = await params;
-  let session = sessionStore.get(sessionId);
 
-  // On serverless (Vercel), the POST that created the session ran in a
-  // different invocation, so the in-memory store is empty. Bootstrap the
-  // session from the query-param problem text instead.
-  if (!session) {
-    const problem = req.nextUrl.searchParams.get('problem');
-    if (!problem) {
-      return new Response('Session not found', { status: 404 });
-    }
-    session = {
-      problem: decodeURIComponent(problem),
+  const body = await req.json();
+  const { message, problem, transcript, roundNumber } = body as {
+    message: string;
+    problem: string;
+    transcript: TranscriptEntry[];
+    roundNumber: number;
+  };
+
+  if (!message || typeof message !== 'string' || message.trim().length === 0) {
+    return new Response(JSON.stringify({ error: 'Message is required' }), {
+      status: 400,
+      headers: { 'Content-Type': 'application/json' },
+    });
+  }
+
+  if (!Array.isArray(transcript)) {
+    return new Response(JSON.stringify({ error: 'Transcript is required' }), {
+      status: 400,
+      headers: { 'Content-Type': 'application/json' },
+    });
+  }
+
+  // Resolve problem: use provided value, or extract from first user turn in transcript
+  const resolvedProblem = (typeof problem === 'string' && problem.trim())
+    ? problem.trim()
+    : transcript.find((t) => t.agentId === 'user')?.content ?? message.trim();
+
+  // Ensure session exists so interventions/pause work during continuation
+  if (!sessionStore.get(sessionId)) {
+    sessionStore.create(sessionId, {
+      problem: resolvedProblem,
       apiKeys: {},
-      status: 'pending',
+      status: 'active',
       createdAt: Date.now(),
       interventionQueue: [],
       reactions: {},
-    };
-    sessionStore.create(sessionId, session);
+    });
+  } else {
+    sessionStore.update(sessionId, { status: 'active' });
   }
 
   initializeAgents();
+
+  const serverKeys = getAllApiKeys();
 
   const encoder = new TextEncoder();
   const stream = new ReadableStream({
@@ -57,11 +80,6 @@ export async function GET(
         controller.enqueue(encoder.encode(encodeSSE(event)));
       };
 
-      // Record events for replay
-      const replayBuffer: ReplayEvent[] = [];
-      const startTime = Date.now();
-
-      // Heartbeat to keep connection alive and let client detect stale connections
       const heartbeatInterval = setInterval(() => {
         try {
           send({ type: 'heartbeat', data: { timestamp: Date.now() }, timestamp: Date.now() });
@@ -71,48 +89,34 @@ export async function GET(
       }, HEARTBEAT_INTERVAL_MS);
 
       try {
-        sessionStore.update(sessionId, { status: 'active' });
+        const iterator = runContinuation(
+          resolvedProblem,
+          message.trim(),
+          transcript,
+          serverKeys,
+          roundNumber ?? 1,
+          sessionId,
+        )[Symbol.asyncIterator]();
 
-        // Merge server-side env keys with any client-provided keys
-        const serverKeys = getAllApiKeys();
-        const mergedKeys = { ...serverKeys, ...session.apiKeys };
-
-        // Run the full multi-agent debate via the orchestrator with per-turn timeout
-        const iterator = runDebate(session, mergedKeys, sessionId)[Symbol.asyncIterator]();
         let done = false;
-
         while (!done) {
           const result = await withTimeout(iterator.next(), TURN_TIMEOUT_MS);
           done = result.done ?? false;
           if (!done) {
-            const event = result.value;
-            // Record for replay before sending
-            replayBuffer.push({
-              event: event as unknown as Record<string, unknown>,
-              elapsed: Date.now() - startTime,
-            });
-            send(event);
+            send(result.value);
           }
         }
-
-        // Save replay events — session goes to idle (awaiting user input)
-        sessionStore.update(sessionId, {
-          status: 'idle',
-          replayEvents: replayBuffer,
-          roundNumber: 1,
-        });
       } catch (error) {
         send({
           type: 'error',
           data: {
-            message:
-              error instanceof Error ? error.message : 'Unknown error occurred',
+            message: error instanceof Error ? error.message : 'Continuation failed',
           },
           timestamp: Date.now(),
         });
-        sessionStore.update(sessionId, { status: 'error' });
       } finally {
         clearInterval(heartbeatInterval);
+        sessionStore.update(sessionId, { status: 'idle' });
         controller.close();
       }
     },

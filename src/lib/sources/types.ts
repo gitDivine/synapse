@@ -27,7 +27,10 @@ export type SourceId =
   | 'stackexchange'
   | 'arxiv'
   | 'github'
-  | 'pubmed';
+  | 'pubmed'
+  | 'brave'
+  | 'serper'
+  | 'tavily';
 
 export interface SearchDecision {
   shouldSearch: boolean;

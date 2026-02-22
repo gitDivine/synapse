@@ -72,7 +72,7 @@ export function MessageFeed({
             Connection lost
           </p>
           <p className="mt-1 text-sm text-text-secondary">
-            The debate stream was interrupted. Try refreshing the page.
+            The conversation stream was interrupted. Try refreshing the page.
           </p>
           <button
             onClick={() => window.location.reload()}
@@ -109,7 +109,7 @@ export function MessageFeed({
       ref={scrollRef}
       className="flex-1 overflow-y-auto"
       role="log"
-      aria-label="Debate messages"
+      aria-label="Conversation messages"
       aria-live="polite"
     >
       {/* Show earlier messages button */}
@@ -127,6 +127,17 @@ export function MessageFeed({
           const msgReactions = reactions?.[msg.id];
           const influence = showInfluence ? influenceScores?.[msg.id] : undefined;
 
+          if (msg.isUnavailable) {
+            return (
+              <div
+                key={msg.id}
+                className="flex items-center gap-2 px-4 py-2 text-xs text-text-muted"
+              >
+                <div className="h-1.5 w-1.5 rounded-full bg-amber-500/60" />
+                <span>{msg.content}</span>
+              </div>
+            );
+          }
           if (msg.isUser) {
             return (
               <MessageBubble
@@ -161,6 +172,24 @@ export function MessageFeed({
               />
             );
           }
+          // Synapse verdict messages (agentId === 'synapse' but not research)
+          if (msg.agentId === 'synapse') {
+            return (
+              <MessageBubble
+                key={msg.id}
+                messageId={msg.id}
+                agentName="Synapse"
+                agentAvatar="S"
+                agentColor="var(--accent)"
+                content={msg.content}
+                psychState={msg.psychState}
+                isStreaming={!msg.complete && activeAgent === 'synapse'}
+                reactions={msgReactions}
+                onReact={onReact}
+                influenceScore={influence}
+              />
+            );
+          }
           const agent = getAgent(msg.agentId);
           const replyToAgent = msg.replyTo
             ? getAgent(agents.find((a) => a.displayName === msg.replyTo?.agentName)?.id ?? '')
@@ -186,11 +215,11 @@ export function MessageFeed({
         })}
       </AnimatePresence>
 
-      {/* Debate ended indicator */}
-      {status === 'ended' && (
-        <div className="border-t border-border px-4 py-6 text-center">
-          <p className="text-sm font-medium text-text-secondary">
-            Debate concluded
+      {/* Idle indicator — waiting for user input */}
+      {status === 'idle' && (
+        <div className="px-4 py-4 text-center">
+          <p className="text-xs text-text-muted">
+            Synapse is ready. Type below to continue the conversation.
           </p>
         </div>
       )}

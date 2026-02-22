@@ -7,6 +7,8 @@ import type {
 } from '../types';
 import { agentRegistry } from '../registry';
 
+const FETCH_TIMEOUT_MS = 10_000;
+
 /** Groq uses OpenAI-compatible API */
 class GroqAgent implements AIAgent {
   readonly config: AgentConfig;
@@ -19,51 +21,75 @@ class GroqAgent implements AIAgent {
   }
 
   async complete(messages: AgentMessage[]) {
-    const res = await fetch(`${this.baseUrl}/chat/completions`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${this.apiKey}`,
-      },
-      body: JSON.stringify({
-        model: this.config.model,
-        messages,
-        max_tokens: this.config.maxTokens,
-        temperature: this.config.temperature,
-      }),
-    });
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS);
 
-    if (!res.ok) {
-      const err = await res.text();
-      throw new Error(`Groq API error: ${res.status} ${err}`);
+    try {
+      const res = await fetch(`${this.baseUrl}/chat/completions`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${this.apiKey}`,
+        },
+        body: JSON.stringify({
+          model: this.config.model,
+          messages,
+          max_tokens: this.config.maxTokens,
+          temperature: this.config.temperature,
+        }),
+        signal: controller.signal,
+      });
+
+      if (!res.ok) {
+        const err = await res.text();
+        throw new Error(`Groq API error: ${res.status} ${err}`);
+      }
+
+      const data = await res.json();
+      return {
+        content: data.choices[0].message.content,
+        usage: {
+          promptTokens: data.usage?.prompt_tokens ?? 0,
+          completionTokens: data.usage?.completion_tokens ?? 0,
+          totalTokens: data.usage?.total_tokens ?? 0,
+        },
+      };
+    } finally {
+      clearTimeout(timeout);
     }
-
-    const data = await res.json();
-    return {
-      content: data.choices[0].message.content,
-      usage: {
-        promptTokens: data.usage?.prompt_tokens ?? 0,
-        completionTokens: data.usage?.completion_tokens ?? 0,
-        totalTokens: data.usage?.total_tokens ?? 0,
-      },
-    };
   }
 
   async *stream(messages: AgentMessage[]): AsyncIterable<AgentStreamChunk> {
-    const res = await fetch(`${this.baseUrl}/chat/completions`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${this.apiKey}`,
-      },
-      body: JSON.stringify({
-        model: this.config.model,
-        messages,
-        max_tokens: this.config.maxTokens,
-        temperature: this.config.temperature,
-        stream: true,
-      }),
-    });
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS);
+
+    let res: Response;
+    try {
+      res = await fetch(`${this.baseUrl}/chat/completions`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${this.apiKey}`,
+        },
+        body: JSON.stringify({
+          model: this.config.model,
+          messages,
+          max_tokens: this.config.maxTokens,
+          temperature: this.config.temperature,
+          stream: true,
+        }),
+        signal: controller.signal,
+      });
+    } catch (err) {
+      clearTimeout(timeout);
+      const msg = err instanceof Error && err.name === 'AbortError'
+        ? 'Groq API timed out'
+        : `Groq API error: ${err}`;
+      yield { type: 'error', content: msg };
+      return;
+    }
+
+    clearTimeout(timeout);
 
     if (!res.ok) {
       const err = await res.text();
@@ -75,32 +101,44 @@ class GroqAgent implements AIAgent {
     const decoder = new TextDecoder();
     let buffer = '';
 
-    while (true) {
-      const { done, value } = await reader.read();
-      if (done) break;
+    let chunkTimer: ReturnType<typeof setTimeout> | null = null;
+    const resetChunkTimer = () => {
+      if (chunkTimer) clearTimeout(chunkTimer);
+      chunkTimer = setTimeout(() => { reader.cancel(); }, 8_000);
+    };
+    resetChunkTimer();
 
-      buffer += decoder.decode(value, { stream: true });
-      const lines = buffer.split('\n');
-      buffer = lines.pop() || '';
+    try {
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        resetChunkTimer();
 
-      for (const line of lines) {
-        const trimmed = line.trim();
-        if (trimmed.startsWith('data: ') && trimmed !== 'data: [DONE]') {
-          try {
-            const json = JSON.parse(trimmed.slice(6));
-            const delta = json.choices?.[0]?.delta?.content;
-            if (delta) {
-              yield { type: 'text_delta', content: delta };
+        buffer += decoder.decode(value, { stream: true });
+        const lines = buffer.split('\n');
+        buffer = lines.pop() || '';
+
+        for (const line of lines) {
+          const trimmed = line.trim();
+          if (trimmed.startsWith('data: ') && trimmed !== 'data: [DONE]') {
+            try {
+              const json = JSON.parse(trimmed.slice(6));
+              const delta = json.choices?.[0]?.delta?.content;
+              if (delta) {
+                yield { type: 'text_delta', content: delta };
+              }
+            } catch {
+              // Skip malformed lines
             }
-          } catch {
-            // Skip malformed lines
+          }
+          if (trimmed === 'data: [DONE]') {
+            yield { type: 'done', content: '' };
+            return;
           }
         }
-        if (trimmed === 'data: [DONE]') {
-          yield { type: 'done', content: '' };
-          return;
-        }
       }
+    } finally {
+      if (chunkTimer) clearTimeout(chunkTimer);
     }
 
     yield { type: 'done', content: '' };

@@ -29,7 +29,7 @@ export class ContextLog {
    */
   getDebateHistory(
     excludeAgentId?: string,
-    maxTurns = 8,
+    maxTurns = 20,
   ): string {
     const relevant = this.turns
       .slice(-maxTurns)
