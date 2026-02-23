@@ -190,77 +190,8 @@ export async function* runDebate(
     allQuoteLinks,
   );
 
-  // 6. Synapse verdict — only synthesize when the council reaches consensus.
-  // On intermediate rounds, agents keep debating without Synapse intervening.
-  // The client auto-continues rounds until consensus >= threshold or max rounds hit.
-  const shouldSynthesize = consensusScore >= CONSENSUS_THRESHOLD;
-
-  if (shouldSynthesize) {
-    const synapseAgent = createSynapseAgent();
-    const verdictAgent = synapseAgent ?? (() => {
-      const availableAgents = agents.filter((a) => !failedAgentIds.has(a.config.id));
-      const verdictPool = availableAgents.length > 0 ? availableAgents : agents;
-      return verdictPool[0 % verdictPool.length];
-    })();
-    const verdictMessageId = 'synapse-verdict-0';
-
-    if (synapseAgent) {
-      await new Promise((resolve) => setTimeout(resolve, 2000));
-    }
-
-    yield {
-      type: 'agent:thinking',
-      data: { agentId: 'synapse', messageId: verdictMessageId, psychState: 'synthesizer' },
-      timestamp: Date.now(),
-    };
-
-    const verdictPrompt = buildVerdictPrompt(session.problem, memory, consensusScore, allResearchResults);
-    let verdictFailed = false;
-    for (let vAttempt = 0; vAttempt <= 1; vAttempt++) {
-      verdictFailed = false;
-      let verdictHasText = false;
-      try {
-        for await (const chunk of verdictAgent.stream(verdictPrompt)) {
-          if (chunk.type === 'text_delta') {
-            verdictHasText = true;
-            yield {
-              type: 'agent:chunk',
-              data: { agentId: 'synapse', messageId: verdictMessageId, content: chunk.content },
-              timestamp: Date.now(),
-            };
-          }
-          if (chunk.type === 'error') {
-            verdictFailed = true;
-            break;
-          }
-        }
-      } catch {
-        verdictFailed = true;
-      }
-      if (!verdictFailed && !verdictHasText) verdictFailed = true;
-      if (!verdictFailed) break;
-      if (vAttempt < 1) {
-        await new Promise((resolve) => setTimeout(resolve, 3000));
-      }
-    }
-    if (verdictFailed) {
-      yield {
-        type: 'agent:chunk',
-        data: {
-          agentId: 'synapse',
-          messageId: verdictMessageId,
-          content: `The council discussed this across ${memory.length} turns. Strong consensus was reached. Feel free to ask me to dig deeper into any aspect.`,
-        },
-        timestamp: Date.now(),
-      };
-    }
-
-    yield {
-      type: 'agent:done',
-      data: { agentId: 'synapse', messageId: verdictMessageId },
-      timestamp: Date.now(),
-    };
-  }
+  // 6. Round 0 is always the opening exchange — Synapse never synthesizes here.
+  // The client auto-continues rounds until consensus is reached in later rounds.
 
   // Save transcript for continuation rounds
   sessionStore.update(sessionId, {

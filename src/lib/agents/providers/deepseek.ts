@@ -146,10 +146,12 @@ class DeepSeekAgent implements AIAgent {
 
   async validateApiKey(): Promise<boolean> {
     try {
-      const res = await fetch(`${this.baseUrl}/models`, {
+      const res = await fetch(`${this.baseUrl}/user/balance`, {
         headers: { Authorization: `Bearer ${this.apiKey}` },
       });
-      return res.ok;
+      if (!res.ok) return false;
+      const data = await res.json();
+      return data.is_available === true;
     } catch {
       return false;
     }

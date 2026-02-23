@@ -75,6 +75,12 @@ export class ConsensusDetector {
 
     const rawScore = numerator / denominator;
 
+    // Dampen early rounds — need at least 2 full exchanges (8+ turns) for reliable consensus.
+    // AI agents are naturally agreeable so early scores inflate without real debate depth.
+    if (turns.length < 8) {
+      return Math.max(0.1, Math.min(rawScore * 0.6, 0.7));
+    }
+
     // Apply a minimum floor — even with disagreements, some consensus exists
     return Math.max(0.1, Math.min(rawScore, 1.0));
   }
