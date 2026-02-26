@@ -934,6 +934,10 @@ function buildTurnPrompt(
   const debateHistory = memory.getDebateHistory(agent.config.id);
   const otherAgents = allAgents.filter((a) => a.config.id !== agent.config.id);
 
+  // Track how many times THIS agent has already spoken — used to prevent repetition
+  const myPreviousTurns = memory.getAllTurns().filter(t => t.agentId === agent.config.id);
+  const timesSpoken = myPreviousTurns.length;
+
   // Determine which agents have actually spoken vs haven't spoken yet
   const spokenAgentIds = new Set(memory.getAllTurns().filter(t => t.agentId !== 'user').map(t => t.agentId));
   const spokenAgents = otherAgents.filter((a) => spokenAgentIds.has(a.config.id));
@@ -976,6 +980,20 @@ function buildTurnPrompt(
     `- If you disagree with someone who HAS spoken, name them and explain WHY.`,
     `- If you agree with someone who HAS spoken, name them and add NEW value beyond "I agree."`,
     `- Be direct and substantive. No filler, no "great question" pleasantries.`,
+    ...(timesSpoken > 0
+      ? [
+          ``,
+          `🚫 ANTI-REPETITION — CRITICAL:`,
+          `You have already spoken ${timesSpoken} time${timesSpoken > 1 ? 's' : ''} in this debate. Your previous points are marked "(you)" in the conversation above.`,
+          `DO NOT restate, rephrase, or summarize anything you already said. The user can see your previous messages — repeating yourself adds zero value.`,
+          `Instead you MUST do ONE of these:`,
+          `- Introduce a completely NEW angle, example, or counterpoint nobody has raised`,
+          `- Directly challenge or build on something ANOTHER agent said since your last message`,
+          `- Concede a point if someone made a stronger argument — changing your mind is valuable`,
+          `- Go deeper on a specific detail instead of staying high-level`,
+          `If you catch yourself about to restate a point, STOP and find something new to say.`,
+        ]
+      : []),
     ``,
     `SOURCE ATTRIBUTION (CRITICAL):`,
     `- When citing information from the live research results provided, always tag it inline: (Source: [SOURCE_NAME] — retrieved live)`,
@@ -1011,10 +1029,14 @@ function buildTurnPrompt(
     });
   }
 
-  let turnInstruction =
-    turnNumber === 0 || spokenAgents.length === 0
-      ? `You're opening the conversation. Set the tone — give your honest initial take on this problem. Be conversational and engaging from the start. Do NOT address or mention other participants since nobody has spoken yet.`
-      : `Your turn (turn ${turnNumber + 1}). Reply to the conversation above. Respond directly to specific things other participants ACTUALLY SAID — name them, quote them, agree or push back. Be yourself.`;
+  let turnInstruction: string;
+  if (turnNumber === 0 || spokenAgents.length === 0) {
+    turnInstruction = `You're opening the conversation. Set the tone — give your honest initial take on this problem. Be conversational and engaging from the start. Do NOT address or mention other participants since nobody has spoken yet.`;
+  } else if (timesSpoken === 0) {
+    turnInstruction = `Your turn (turn ${turnNumber + 1}). Reply to the conversation above. Respond directly to specific things other participants ACTUALLY SAID — name them, quote them, agree or push back. Be yourself.`;
+  } else {
+    turnInstruction = `Your turn again (turn ${turnNumber + 1}, you've spoken ${timesSpoken} time${timesSpoken > 1 ? 's' : ''} before). The debate is still going because the council hasn't converged yet. You MUST advance the conversation — pick a specific point another agent made since your last message and either challenge it, deepen it, or concede. Do NOT rehash your earlier arguments.`;
+  }
 
   if (researchContext) {
     turnInstruction += `\n\nSynapse has retrieved the following live research for this turn. Use it if relevant and always cite the source:${researchContext}`;

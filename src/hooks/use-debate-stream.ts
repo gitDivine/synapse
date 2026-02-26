@@ -42,7 +42,7 @@ const STALE_CHECK_INTERVAL_MS = 20_000;
 const STALE_THRESHOLD_MS = 45_000;
 const AUTO_CONSENSUS_THRESHOLD = 0.85;
 const MAX_AUTO_ROUNDS = 5;
-const AUTO_CONTINUE_MSG = 'Continue the discussion — the council hasn\'t reached consensus yet. Build on each other\'s points and try to converge on a conclusion.';
+const AUTO_CONTINUE_MSG = 'The council hasn\'t reached consensus yet. Each agent must introduce a NEW point, challenge, or concession — do not repeat earlier arguments. Push toward a conclusion.';
 
 export function useDebateStream(sessionId: string, problem?: string) {
   const [messages, setMessages] = useState<DebateMessage[]>([]);
