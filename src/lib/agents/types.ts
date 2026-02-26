@@ -42,7 +42,6 @@ export type ProviderType =
   | 'cohere'
   | 'together'
   | 'huggingface'
-  | 'deepseek'
   | 'mistral';
 
 export interface AIAgent {

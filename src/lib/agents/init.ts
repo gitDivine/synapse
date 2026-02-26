@@ -8,7 +8,6 @@ import { register as registerOpenRouter } from './providers/openrouter';
 import { register as registerCohere } from './providers/cohere';
 import { register as registerTogether } from './providers/together';
 import { register as registerHuggingFace } from './providers/huggingface';
-import { register as registerDeepSeek } from './providers/deepseek';
 import { register as registerMistral } from './providers/mistral';
 
 let initialized = false;
@@ -25,7 +24,6 @@ export function initializeAgents() {
   registerCohere();
   registerTogether();
   registerHuggingFace();
-  registerDeepSeek();
   registerMistral();
 
   // Register all agent configurations
