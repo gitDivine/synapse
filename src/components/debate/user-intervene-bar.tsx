@@ -115,65 +115,68 @@ export function UserInterveneBar({ onSend, disabled, mode = 'intervene', interve
         aria-hidden="true"
       />
 
-      <div className="mx-auto flex max-w-3xl items-center gap-2">
-        {/* Paperclip button */}
-        <button
-          onClick={openFilePicker}
-          disabled={sending || disabled || interventionQueued}
-          className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-lg border border-border text-text-muted transition-colors hover:border-accent/40 hover:text-text-primary disabled:cursor-not-allowed disabled:opacity-50"
-          aria-label="Attach a file"
-        >
-          <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round">
-            <path d="M13.5 7.5l-5.793 5.793a3 3 0 01-4.243 0v0a3 3 0 010-4.243L9.88 2.636a2 2 0 012.828 0v0a2 2 0 010 2.828L6.293 11.88a1 1 0 01-1.414 0v0a1 1 0 010-1.414L10.5 4.843" />
-          </svg>
-        </button>
-
-        <input
-          ref={inputRef}
-          type="text"
-          value={message}
-          onChange={(e) => setMessage(e.target.value)}
-          onKeyDown={(e) => {
-            if (e.key === 'Enter' && !e.shiftKey) {
-              e.preventDefault();
-              handleSubmit(isContinue ? 'council' : undefined);
-            }
-          }}
-          placeholder={
-            interventionQueued
-              ? 'Message queued — waiting for round to finish...'
-              : file
-                ? 'Add a question about the file (optional)...'
-                : isContinue
-                  ? 'Continue the conversation...'
-                  : 'Jump in — type your message...'
-          }
-          disabled={disabled || sending || interventionQueued}
-          maxLength={2000}
-          className={`flex-1 rounded-lg border px-3 py-2 text-sm outline-none transition-colors ${
-            interventionQueued
-              ? 'border-border/50 bg-surface-overlay text-text-muted cursor-not-allowed opacity-60'
-              : 'border-border bg-background text-text-primary placeholder-text-muted focus:border-accent disabled:opacity-50'
-          }`}
-          aria-label={isContinue ? 'Continue the conversation' : 'Type your message'}
-        />
-
-        {!interventionQueued && !isContinue && (
+      <div className="mx-auto max-w-3xl space-y-2">
+        <div className="flex items-center gap-2">
+          {/* Paperclip button */}
           <button
-            onClick={() => handleSubmit()}
-            disabled={!canSend}
-            className="flex-shrink-0 rounded-lg bg-accent px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-accent-hover disabled:opacity-50 disabled:hover:bg-accent"
-            aria-label="Send message"
+            onClick={openFilePicker}
+            disabled={sending || disabled || interventionQueued}
+            className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-lg border border-border text-text-muted transition-colors hover:border-accent/40 hover:text-text-primary disabled:cursor-not-allowed disabled:opacity-50"
+            aria-label="Attach a file"
           >
-            {sending ? (sendLabel || 'Sending...') : 'Send'}
+            <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round">
+              <path d="M13.5 7.5l-5.793 5.793a3 3 0 01-4.243 0v0a3 3 0 010-4.243L9.88 2.636a2 2 0 012.828 0v0a2 2 0 010 2.828L6.293 11.88a1 1 0 01-1.414 0v0a1 1 0 010-1.414L10.5 4.843" />
+            </svg>
           </button>
-        )}
+
+          <input
+            ref={inputRef}
+            type="text"
+            value={message}
+            onChange={(e) => setMessage(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' && !e.shiftKey) {
+                e.preventDefault();
+                handleSubmit(isContinue ? 'council' : undefined);
+              }
+            }}
+            placeholder={
+              interventionQueued
+                ? 'Message queued — waiting for round to finish...'
+                : file
+                  ? 'Add a question about the file (optional)...'
+                  : isContinue
+                    ? 'Continue the conversation...'
+                    : 'Jump in — type your message...'
+            }
+            disabled={disabled || sending || interventionQueued}
+            maxLength={2000}
+            className={`min-w-0 flex-1 rounded-lg border px-3 py-2 text-sm outline-none transition-colors ${
+              interventionQueued
+                ? 'border-border/50 bg-surface-overlay text-text-muted cursor-not-allowed opacity-60'
+                : 'border-border bg-background text-text-primary placeholder-text-muted focus:border-accent disabled:opacity-50'
+            }`}
+            aria-label={isContinue ? 'Continue the conversation' : 'Type your message'}
+          />
+
+          {!interventionQueued && !isContinue && (
+            <button
+              onClick={() => handleSubmit()}
+              disabled={!canSend}
+              className="flex-shrink-0 rounded-lg bg-accent px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-accent-hover disabled:opacity-50 disabled:hover:bg-accent"
+              aria-label="Send message"
+            >
+              {sending ? (sendLabel || 'Sending...') : 'Send'}
+            </button>
+          )}
+        </div>
+
         {!interventionQueued && isContinue && (
-          <>
+          <div className="flex items-center justify-end gap-2">
             <button
               onClick={() => handleSubmit('synapse')}
               disabled={!canSend}
-              className="flex-shrink-0 rounded-lg border border-accent/40 bg-accent/10 px-3 py-2 text-sm font-medium text-accent transition-colors hover:bg-accent/20 disabled:opacity-50"
+              className="flex-1 rounded-lg border border-accent/40 bg-accent/10 px-3 py-2 text-sm font-medium text-accent transition-colors hover:bg-accent/20 disabled:opacity-50 sm:flex-none"
               aria-label="Ask Synapse"
             >
               {sending ? (sendLabel || '...') : 'Ask Synapse'}
@@ -181,12 +184,12 @@ export function UserInterveneBar({ onSend, disabled, mode = 'intervene', interve
             <button
               onClick={() => handleSubmit('council')}
               disabled={!canSend}
-              className="flex-shrink-0 rounded-lg bg-accent px-3 py-2 text-sm font-medium text-white transition-colors hover:bg-accent-hover disabled:opacity-50 disabled:hover:bg-accent"
+              className="flex-1 rounded-lg bg-accent px-3 py-2 text-sm font-medium text-white transition-colors hover:bg-accent-hover disabled:opacity-50 disabled:hover:bg-accent sm:flex-none"
               aria-label="Ask the Council"
             >
               {sending ? (sendLabel || '...') : 'Ask Council'}
             </button>
-          </>
+          </div>
         )}
       </div>
     </div>
