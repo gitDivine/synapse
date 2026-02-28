@@ -271,10 +271,8 @@ export async function* runContinuation(
     timestamp: Date.now(),
   };
 
-  // Pre-delay before continuation — small buffer to let rate limits settle
-  // Round 1: 3s, Round 2: 4s, Round 3+: 5s
-  const preDelayMs = Math.min(5_000, 3_000 + (roundNumber - 1) * 1_000);
-  await new Promise((resolve) => setTimeout(resolve, preDelayMs));
+  // Brief buffer to let rate limits settle between rounds
+  await new Promise((resolve) => setTimeout(resolve, 1_500));
 
   // Check if the user is addressing Synapse directly (e.g. "@Synapse, explain simpler")
   const isSynapseMention = isMentioningSynapse(userMessage);
@@ -343,9 +341,8 @@ export async function* runContinuation(
   const psychEngine = new PsychologicalStateEngine();
   psychEngine.assignInitialStates(orderedAgents);
 
-  // Dynamic rounds — more agents = fewer rounds to fit within 60s
-  const { maxTurns, maxRounds } = computeDebateParams(orderedAgents.length);
-  const turnManager = new TurnManager(orderedAgents, { maxTurns, maxRounds });
+  // Continuations: 1 round only — each agent speaks once, then Synapse may synthesize
+  const turnManager = new TurnManager(orderedAgents, { maxTurns: orderedAgents.length, maxRounds: 1 });
   const momentumCalculator = new MomentumCalculator();
   const quoteDetector = new QuoteDetector();
   const searchRouter = new SearchRouter();
@@ -621,8 +618,9 @@ async function* runDebateLoop(ctx: DebateLoopContext): AsyncIterable<SSEEvent> {
     let fullResponse = '';
     let agentFailed = false;
     let lastErrorMsg = '';
-    const MAX_RETRIES = 2;
-    const RETRY_DELAY_MS = 3_000;
+    const MAX_RETRIES = 1;
+    const RETRY_DELAY_MS = 1_500;
+    const AGENT_TURN_TIMEOUT_MS = 15_000;
 
     for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
       fullResponse = '';
@@ -630,12 +628,22 @@ async function* runDebateLoop(ctx: DebateLoopContext): AsyncIterable<SSEEvent> {
       let isRetryable = false;
       let yieldedChunks = false;
 
+      // Per-agent total timeout — prevents one slow agent from eating the whole 60s budget
+      const turnDeadline = Date.now() + AGENT_TURN_TIMEOUT_MS;
+
       try {
         // Buffer for stripping <think>...</think> blocks from streamed output (e.g. Qwen)
         let thinkBuffer = '';
         let insideThink = false;
 
         for await (const chunk of agent.stream(messages)) {
+          // Hard cutoff: if this agent has been running too long, bail
+          if (Date.now() > turnDeadline) {
+            agentFailed = true;
+            lastErrorMsg = `${agent.config.displayName} took too long`;
+            break;
+          }
+
           if (chunk.type === 'text_delta') {
             fullResponse += chunk.content;
 
@@ -852,7 +860,7 @@ async function* runDebateLoop(ctx: DebateLoopContext): AsyncIterable<SSEEvent> {
 
     // Pacing delay between turns (only when no intervention is waiting)
     if (!turnManager.isComplete()) {
-      const pacingMs = 1500;
+      const pacingMs = 1000;
       yield { type: 'turn:pause', data: { duration: pacingMs }, timestamp: Date.now() };
       await new Promise((resolve) => setTimeout(resolve, pacingMs));
     }
