@@ -10,9 +10,9 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Problem is required' }, { status: 400 });
   }
 
-  if (problem.length > 2000) {
+  if (problem.length > 12000) {
     return NextResponse.json(
-      { error: 'Problem must be under 2000 characters' },
+      { error: 'Problem must be under 12000 characters' },
       { status: 400 }
     );
   }

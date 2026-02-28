@@ -192,3 +192,61 @@ export function createSynapseAgent(): SynapseAgent | null {
   if (!apiKey) return null;
   return new SynapseAgent(apiKey);
 }
+
+/**
+ * Analyze an uploaded file (image or document) using Gemini's multimodal capabilities.
+ * Returns extracted/described text content.
+ */
+export async function analyzeAttachment(
+  apiKey: string,
+  base64: string,
+  mimeType: string,
+  fileName?: string,
+): Promise<string> {
+  const BASE_URL = 'https://generativelanguage.googleapis.com/v1beta';
+  const url = `${BASE_URL}/models/gemini-2.5-flash:generateContent?key=${apiKey}`;
+
+  const isImage = mimeType.startsWith('image/');
+  const systemPrompt = isImage
+    ? 'You are a document analysis assistant. Describe this image in detail — what it shows, any text visible, charts, diagrams, data, or key information. Be thorough but concise. If it contains text, extract it verbatim.'
+    : 'You are a document analysis assistant. Extract and summarize the key content from this document. Preserve important data, structure, and meaning. If it contains tables or structured data, represent them clearly.';
+
+  const body = {
+    systemInstruction: { parts: [{ text: systemPrompt }] },
+    contents: [{
+      role: 'user',
+      parts: [
+        { inlineData: { mimeType, data: base64 } },
+        { text: fileName ? `Analyze this file: "${fileName}"` : 'Analyze this file.' },
+      ],
+    }],
+    generationConfig: {
+      maxOutputTokens: 2048,
+      temperature: 0.2,
+    },
+  };
+
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 30_000);
+
+  try {
+    const res = await fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+      signal: controller.signal,
+    });
+
+    if (!res.ok) {
+      const err = await res.text();
+      throw new Error(`Gemini analysis failed: ${res.status} ${err}`);
+    }
+
+    const data = await res.json();
+    const text = data.candidates?.[0]?.content?.parts?.[0]?.text;
+    if (!text) throw new Error('Gemini returned empty analysis');
+    return text;
+  } finally {
+    clearTimeout(timeout);
+  }
+}
