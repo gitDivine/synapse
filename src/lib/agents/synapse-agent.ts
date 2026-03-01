@@ -2,12 +2,17 @@ import type { AIAgent, AgentConfig, AgentMessage, AgentStreamChunk, TokenUsage }
 
 const FETCH_TIMEOUT_MS = 15_000; // Synapse gets a bit longer since its output is larger
 
+/** Round-robin index for Synapse key rotation (shared across instances) */
+let synapseKeyIndex = 0;
+
 /**
  * Dedicated Synapse moderator agent powered by Google Gemini 2.5 Flash.
  * This is NOT a debate agent — it's the synthesis/moderator brain that:
  * 1. Analyzes and summarizes what the debate agents discussed
  * 2. Delivers executive summaries to the user
  * 3. Responds to @Synapse mentions with its own voice
+ *
+ * Supports multiple API keys (comma-separated) with rotation on 429 errors.
  */
 export class SynapseAgent implements AIAgent {
   readonly config: AgentConfig = {
@@ -25,11 +30,19 @@ export class SynapseAgent implements AIAgent {
     temperature: 0.6,
   };
 
-  private apiKey: string;
+  private keys: string[];
   private baseUrl = 'https://generativelanguage.googleapis.com/v1beta';
 
-  constructor(apiKey: string) {
-    this.apiKey = apiKey;
+  constructor(keys: string[]) {
+    this.keys = keys;
+  }
+
+  private getKey(): string {
+    return this.keys[synapseKeyIndex % this.keys.length];
+  }
+
+  private rotateKey(): void {
+    synapseKeyIndex = (synapseKeyIndex + 1) % this.keys.length;
   }
 
   private toGeminiMessages(messages: AgentMessage[]) {
@@ -49,78 +62,112 @@ export class SynapseAgent implements AIAgent {
 
   async complete(messages: AgentMessage[]): Promise<{ content: string; usage: TokenUsage }> {
     const { systemInstruction, contents } = this.toGeminiMessages(messages);
-    const url = `${this.baseUrl}/models/${this.config.model}:generateContent?key=${this.apiKey}`;
-    const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS);
+    const body = JSON.stringify({
+      ...(systemInstruction && { systemInstruction }),
+      contents,
+      generationConfig: {
+        maxOutputTokens: this.config.maxTokens,
+        temperature: this.config.temperature,
+      },
+    });
 
-    try {
-      const res = await fetch(url, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          ...(systemInstruction && { systemInstruction }),
-          contents,
-          generationConfig: {
-            maxOutputTokens: this.config.maxTokens,
-            temperature: this.config.temperature,
+    for (let attempt = 0; attempt < this.keys.length; attempt++) {
+      const key = this.getKey();
+      const url = `${this.baseUrl}/models/${this.config.model}:generateContent?key=${key}`;
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS);
+
+      try {
+        const res = await fetch(url, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body,
+          signal: controller.signal,
+        });
+
+        if (res.status === 429 && attempt < this.keys.length - 1) {
+          this.rotateKey();
+          continue;
+        }
+
+        if (!res.ok) {
+          const err = await res.text();
+          throw new Error(`Synapse (Gemini) API error: ${res.status} ${err}`);
+        }
+
+        const data = await res.json();
+        const text = data.candidates?.[0]?.content?.parts?.[0]?.text ?? '';
+        const usage = data.usageMetadata;
+
+        return {
+          content: text,
+          usage: {
+            promptTokens: usage?.promptTokenCount ?? 0,
+            completionTokens: usage?.candidatesTokenCount ?? 0,
+            totalTokens: usage?.totalTokenCount ?? 0,
           },
-        }),
-        signal: controller.signal,
-      });
-
-      if (!res.ok) {
-        const err = await res.text();
-        throw new Error(`Synapse (Gemini) API error: ${res.status} ${err}`);
+        };
+      } finally {
+        clearTimeout(timeout);
       }
-
-      const data = await res.json();
-      const text = data.candidates?.[0]?.content?.parts?.[0]?.text ?? '';
-      const usage = data.usageMetadata;
-
-      return {
-        content: text,
-        usage: {
-          promptTokens: usage?.promptTokenCount ?? 0,
-          completionTokens: usage?.candidatesTokenCount ?? 0,
-          totalTokens: usage?.totalTokenCount ?? 0,
-        },
-      };
-    } finally {
-      clearTimeout(timeout);
     }
+
+    throw new Error('Synapse (Gemini): all keys rate-limited');
   }
 
   async *stream(messages: AgentMessage[]): AsyncIterable<AgentStreamChunk> {
     const { systemInstruction, contents } = this.toGeminiMessages(messages);
-    const url = `${this.baseUrl}/models/${this.config.model}:streamGenerateContent?alt=sse&key=${this.apiKey}`;
-    const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS);
+    const body = JSON.stringify({
+      ...(systemInstruction && { systemInstruction }),
+      contents,
+      generationConfig: {
+        maxOutputTokens: this.config.maxTokens,
+        temperature: this.config.temperature,
+      },
+    });
 
-    let res: Response;
-    try {
-      res = await fetch(url, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          ...(systemInstruction && { systemInstruction }),
-          contents,
-          generationConfig: {
-            maxOutputTokens: this.config.maxTokens,
-            temperature: this.config.temperature,
-          },
-        }),
-        signal: controller.signal,
-      });
-    } catch (err) {
-      clearTimeout(timeout);
-      const msg = err instanceof Error && err.name === 'AbortError'
-        ? 'Synapse (Gemini) API timed out'
-        : `Synapse (Gemini) API error: ${err}`;
-      yield { type: 'error', content: msg };
-      return;
+    let res: Response | null = null;
+    for (let attempt = 0; attempt < this.keys.length; attempt++) {
+      const key = this.getKey();
+      const url = `${this.baseUrl}/models/${this.config.model}:streamGenerateContent?alt=sse&key=${key}`;
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS);
+
+      try {
+        const response = await fetch(url, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body,
+          signal: controller.signal,
+        });
+
+        if (response.status === 429 && attempt < this.keys.length - 1) {
+          clearTimeout(timeout);
+          this.rotateKey();
+          continue;
+        }
+
+        clearTimeout(timeout);
+        res = response;
+        break;
+      } catch (err) {
+        clearTimeout(timeout);
+        if (attempt < this.keys.length - 1) {
+          this.rotateKey();
+          continue;
+        }
+        const msg = err instanceof Error && err.name === 'AbortError'
+          ? 'Synapse (Gemini) API timed out'
+          : `Synapse (Gemini) API error: ${err}`;
+        yield { type: 'error', content: msg };
+        return;
+      }
     }
 
-    clearTimeout(timeout);
+    if (!res) {
+      yield { type: 'error', content: 'Synapse (Gemini): all keys rate-limited' };
+      return;
+    }
 
     if (!res.ok) {
       const err = await res.text();
@@ -174,7 +221,7 @@ export class SynapseAgent implements AIAgent {
   async validateApiKey(): Promise<boolean> {
     try {
       const res = await fetch(
-        `${this.baseUrl}/models?key=${this.apiKey}`,
+        `${this.baseUrl}/models?key=${this.getKey()}`,
       );
       return res.ok;
     } catch {
@@ -184,26 +231,43 @@ export class SynapseAgent implements AIAgent {
 }
 
 /**
- * Extract the dedicated Synapse key from GOOGLE_AI_API_KEY.
- * If comma-separated keys are provided, Synapse uses the LAST key
- * so it doesn't compete with the council Gemini agent (which uses earlier keys).
- * With a single key, both share it (graceful degradation).
+ * Get the Synapse API keys.
+ * Priority: GOOGLE_SYNAPSE_API_KEY (dedicated), fallback to GOOGLE_AI_API_KEY.
  */
-function getSynapseKey(): string | null {
-  const raw = process.env.GOOGLE_AI_API_KEY;
-  if (!raw) return null;
-  const keys = raw.split(',').map((k) => k.trim()).filter(Boolean);
-  return keys.length > 0 ? keys[keys.length - 1] : null;
+function getSynapseKeys(): string[] {
+  // Dedicated Synapse keys (preferred — separate quota from council)
+  const dedicated = process.env.GOOGLE_SYNAPSE_API_KEY;
+  if (dedicated) {
+    const keys = dedicated.split(',').map((k) => k.trim()).filter(Boolean);
+    if (keys.length > 0) return keys;
+  }
+  // Fallback: use the last key from the council pool
+  const shared = process.env.GOOGLE_AI_API_KEY;
+  if (!shared) return [];
+  const keys = shared.split(',').map((k) => k.trim()).filter(Boolean);
+  return keys.length > 0 ? [keys[keys.length - 1]] : [];
 }
 
 /**
- * Create the Synapse agent if GOOGLE_AI_API_KEY is available.
+ * Create the Synapse agent if Google API keys are available.
  * Returns null if no key — orchestrator falls back to debate agent rotation.
  */
 export function createSynapseAgent(): SynapseAgent | null {
-  const apiKey = getSynapseKey();
-  if (!apiKey) return null;
-  return new SynapseAgent(apiKey);
+  const keys = getSynapseKeys();
+  if (keys.length === 0) return null;
+  return new SynapseAgent(keys);
+}
+
+/**
+ * Get a single Synapse API key for one-shot operations (file analysis).
+ * Round-robins through available Synapse keys.
+ */
+export function getSynapseApiKey(): string | null {
+  const keys = getSynapseKeys();
+  if (keys.length === 0) return null;
+  const key = keys[synapseKeyIndex % keys.length];
+  synapseKeyIndex = (synapseKeyIndex + 1) % keys.length;
+  return key;
 }
 
 /**
