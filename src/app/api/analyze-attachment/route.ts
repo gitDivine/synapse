@@ -34,13 +34,16 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'File too large. Maximum size is 3MB.' }, { status: 413 });
   }
 
-  const apiKey = process.env.GOOGLE_AI_API_KEY;
-  if (!apiKey) {
+  const raw = process.env.GOOGLE_AI_API_KEY;
+  if (!raw) {
     return NextResponse.json(
       { error: 'File analysis requires Gemini — Google AI API key not configured.' },
       { status: 503 },
     );
   }
+  // Use the last key (dedicated Synapse/analysis key) from comma-separated list
+  const keys = raw.split(',').map((k) => k.trim()).filter(Boolean);
+  const apiKey = keys[keys.length - 1];
 
   try {
     const content = await analyzeAttachment(apiKey, base64, mimeType, fileName);

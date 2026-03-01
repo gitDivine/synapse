@@ -9,14 +9,29 @@ import { agentRegistry } from '../registry';
 
 const FETCH_TIMEOUT_MS = 12_000;
 
+/** Track which key index to try next (shared across instances for fair rotation) */
+let globalKeyIndex = 0;
+
 class GoogleAgent implements AIAgent {
   readonly config: AgentConfig;
-  private apiKey: string;
+  private keys: string[];
   private baseUrl = 'https://generativelanguage.googleapis.com/v1beta';
 
   constructor(config: AgentConfig, apiKey: string) {
     this.config = config;
-    this.apiKey = apiKey;
+    // Support comma-separated keys for rotation on rate limits
+    this.keys = apiKey.split(',').map((k) => k.trim()).filter(Boolean);
+  }
+
+  /** Pick the next key using round-robin */
+  private getKey(): string {
+    const key = this.keys[globalKeyIndex % this.keys.length];
+    return key;
+  }
+
+  /** Advance to the next key after a rate limit */
+  private rotateKey(): void {
+    globalKeyIndex = (globalKeyIndex + 1) % this.keys.length;
   }
 
   private toGeminiMessages(messages: AgentMessage[]) {
@@ -36,79 +51,114 @@ class GoogleAgent implements AIAgent {
 
   async complete(messages: AgentMessage[]) {
     const { systemInstruction, contents } = this.toGeminiMessages(messages);
-    const url = `${this.baseUrl}/models/${this.config.model}:generateContent?key=${this.apiKey}`;
-    const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS);
+    const body = JSON.stringify({
+      ...(systemInstruction && { systemInstruction }),
+      contents,
+      generationConfig: {
+        maxOutputTokens: this.config.maxTokens,
+        temperature: this.config.temperature,
+      },
+    });
 
-    try {
-      const res = await fetch(url, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          ...(systemInstruction && { systemInstruction }),
-          contents,
-          generationConfig: {
-            maxOutputTokens: this.config.maxTokens,
-            temperature: this.config.temperature,
+    // Try each key once on rate-limit errors
+    for (let attempt = 0; attempt < this.keys.length; attempt++) {
+      const key = this.getKey();
+      const url = `${this.baseUrl}/models/${this.config.model}:generateContent?key=${key}`;
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS);
+
+      try {
+        const res = await fetch(url, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body,
+          signal: controller.signal,
+        });
+
+        if (res.status === 429 && attempt < this.keys.length - 1) {
+          this.rotateKey();
+          continue;
+        }
+
+        if (!res.ok) {
+          const err = await res.text();
+          throw new Error(`Google AI API error: ${res.status} ${err}`);
+        }
+
+        const data = await res.json();
+        const text = data.candidates?.[0]?.content?.parts?.[0]?.text ?? '';
+        const usage = data.usageMetadata;
+
+        return {
+          content: text,
+          usage: {
+            promptTokens: usage?.promptTokenCount ?? 0,
+            completionTokens: usage?.candidatesTokenCount ?? 0,
+            totalTokens: usage?.totalTokenCount ?? 0,
           },
-        }),
-        signal: controller.signal,
-      });
-
-      if (!res.ok) {
-        const err = await res.text();
-        throw new Error(`Google AI API error: ${res.status} ${err}`);
+        };
+      } finally {
+        clearTimeout(timeout);
       }
-
-      const data = await res.json();
-      const text =
-        data.candidates?.[0]?.content?.parts?.[0]?.text ?? '';
-      const usage = data.usageMetadata;
-
-      return {
-        content: text,
-        usage: {
-          promptTokens: usage?.promptTokenCount ?? 0,
-          completionTokens: usage?.candidatesTokenCount ?? 0,
-          totalTokens: usage?.totalTokenCount ?? 0,
-        },
-      };
-    } finally {
-      clearTimeout(timeout);
     }
+
+    throw new Error('Google AI API: all keys rate-limited');
   }
 
   async *stream(messages: AgentMessage[]): AsyncIterable<AgentStreamChunk> {
     const { systemInstruction, contents } = this.toGeminiMessages(messages);
-    const url = `${this.baseUrl}/models/${this.config.model}:streamGenerateContent?alt=sse&key=${this.apiKey}`;
-    const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS);
+    const body = JSON.stringify({
+      ...(systemInstruction && { systemInstruction }),
+      contents,
+      generationConfig: {
+        maxOutputTokens: this.config.maxTokens,
+        temperature: this.config.temperature,
+      },
+    });
 
-    let res: Response;
-    try {
-      res = await fetch(url, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          ...(systemInstruction && { systemInstruction }),
-          contents,
-          generationConfig: {
-            maxOutputTokens: this.config.maxTokens,
-            temperature: this.config.temperature,
-          },
-        }),
-        signal: controller.signal,
-      });
-    } catch (err) {
-      clearTimeout(timeout);
-      const msg = err instanceof Error && err.name === 'AbortError'
-        ? 'Google AI API timed out'
-        : `Google AI API error: ${err}`;
-      yield { type: 'error', content: msg };
-      return;
+    // Try each key once on rate-limit errors
+    let res: Response | null = null;
+    for (let attempt = 0; attempt < this.keys.length; attempt++) {
+      const key = this.getKey();
+      const url = `${this.baseUrl}/models/${this.config.model}:streamGenerateContent?alt=sse&key=${key}`;
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS);
+
+      try {
+        const response = await fetch(url, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body,
+          signal: controller.signal,
+        });
+
+        if (response.status === 429 && attempt < this.keys.length - 1) {
+          clearTimeout(timeout);
+          this.rotateKey();
+          continue;
+        }
+
+        clearTimeout(timeout);
+        res = response;
+        break;
+      } catch (err) {
+        clearTimeout(timeout);
+        if (attempt < this.keys.length - 1) {
+          this.rotateKey();
+          continue;
+        }
+        const msg = err instanceof Error && err.name === 'AbortError'
+          ? 'Google AI API timed out'
+          : `Google AI API error: ${err}`;
+        yield { type: 'error', content: msg };
+        return;
+      }
     }
 
-    clearTimeout(timeout);
+    if (!res) {
+      yield { type: 'error', content: 'Google AI API: all keys rate-limited' };
+      return;
+    }
 
     if (!res.ok) {
       const err = await res.text();
@@ -162,7 +212,7 @@ class GoogleAgent implements AIAgent {
   async validateApiKey(): Promise<boolean> {
     try {
       const res = await fetch(
-        `${this.baseUrl}/models?key=${this.apiKey}`
+        `${this.baseUrl}/models?key=${this.getKey()}`
       );
       return res.ok;
     } catch {

@@ -184,11 +184,24 @@ export class SynapseAgent implements AIAgent {
 }
 
 /**
+ * Extract the dedicated Synapse key from GOOGLE_AI_API_KEY.
+ * If comma-separated keys are provided, Synapse uses the LAST key
+ * so it doesn't compete with the council Gemini agent (which uses earlier keys).
+ * With a single key, both share it (graceful degradation).
+ */
+function getSynapseKey(): string | null {
+  const raw = process.env.GOOGLE_AI_API_KEY;
+  if (!raw) return null;
+  const keys = raw.split(',').map((k) => k.trim()).filter(Boolean);
+  return keys.length > 0 ? keys[keys.length - 1] : null;
+}
+
+/**
  * Create the Synapse agent if GOOGLE_AI_API_KEY is available.
  * Returns null if no key — orchestrator falls back to debate agent rotation.
  */
 export function createSynapseAgent(): SynapseAgent | null {
-  const apiKey = process.env.GOOGLE_AI_API_KEY;
+  const apiKey = getSynapseKey();
   if (!apiKey) return null;
   return new SynapseAgent(apiKey);
 }

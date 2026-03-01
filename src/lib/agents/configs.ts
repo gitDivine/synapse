@@ -47,4 +47,20 @@ export const AGENT_CONFIGS: AgentConfig[] = [
     maxTokens: 1024,
     temperature: 0.7,
   },
+  // Google — Gemini 2.5 Flash (fast, strong reasoning, multimodal-capable)
+  {
+    id: 'gemini-flash',
+    displayName: 'Gemini Flash',
+    provider: 'google',
+    model: 'gemini-2.5-flash',
+    color: 'var(--agent-blue)',
+    avatar: 'GF',
+    capabilities: [
+      { id: 'general_reasoning', description: 'General reasoning', strength: 0.9 },
+      { id: 'code_reasoning', description: 'Code reasoning', strength: 0.85 },
+      { id: 'data_analysis', description: 'Data analysis', strength: 0.85 },
+    ],
+    maxTokens: 1024,
+    temperature: 0.7,
+  },
 ];
