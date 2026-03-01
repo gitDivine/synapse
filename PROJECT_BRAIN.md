@@ -122,3 +122,23 @@ Multi-agent AI debate platform where diverse AI models argue, critique, and conv
 - Mobile responsive (375px+), bottom sheets, 44px touch targets
 - Accessibility (WCAG AA, focus rings, aria-labels, keyboard nav, screen reader live regions)
 - Performance (dynamic imports, message list virtualization, SSE reconnect with backoff)
+
+### Session — 2026-03-01
+**Done — Gemini Council Agent + Multi-Key Rotation:**
+- Added Gemini Flash as 4th council debate agent (id: gemini-flash, blue, avatar GF)
+- Google provider now supports comma-separated `GOOGLE_AI_API_KEY` with round-robin rotation on 429 rate-limit errors
+- Key separation: council Gemini uses keys[0..N-1], Synapse moderator uses keys[last] — separate quotas
+- File analysis (analyze-attachment) also uses the dedicated last key
+- With a single key, both share it gracefully (backwards compatible)
+- TypeScript check passed, deployed to Vercel
+
+**Key files modified:**
+- `src/lib/agents/configs.ts` — added gemini-flash council config
+- `src/lib/agents/providers/google.ts` — multi-key rotation on 429
+- `src/lib/agents/synapse-agent.ts` — uses last key from comma-separated list
+- `src/app/api/analyze-attachment/route.ts` — uses last key for file analysis
+
+**Architecture note:**
+- 4 council agents: Llama 3 (Groq), Mistral Small (Mistral), Command A (Cohere), Gemini Flash (Google)
+- Synapse moderator: Gemini 2.5 Flash (Google, dedicated last key)
+- `computeDebateParams(4)` returns `{ maxTurns: 4, maxRounds: 1 }` — fits within 60s Vercel limit
