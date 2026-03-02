@@ -72,7 +72,7 @@ export function UserInterveneBar({ onSend, disabled, mode = 'intervene', interve
   const canSend = (message.trim() || file) && !sending && !disabled && !interventionQueued;
 
   return (
-    <div className="border-t border-border bg-surface-raised px-4 py-3">
+    <div className="glass-panel-raised border-t border-glass-border px-4 py-3">
       <AnimatePresence>
         {/* "Queued" banner */}
         {interventionQueued && (
@@ -121,7 +121,7 @@ export function UserInterveneBar({ onSend, disabled, mode = 'intervene', interve
           <button
             onClick={openFilePicker}
             disabled={sending || disabled || interventionQueued}
-            className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-lg border border-border text-text-muted transition-colors hover:border-accent/40 hover:text-text-primary disabled:cursor-not-allowed disabled:opacity-50"
+            className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-lg glass-subtle text-text-muted transition-all hover:bg-white/[0.06] hover:text-text-primary disabled:cursor-not-allowed disabled:opacity-50 active:scale-95"
             aria-label="Attach a file"
           >
             <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round">
@@ -151,10 +151,10 @@ export function UserInterveneBar({ onSend, disabled, mode = 'intervene', interve
             }
             disabled={disabled || sending || interventionQueued}
             maxLength={2000}
-            className={`min-w-0 flex-1 rounded-lg border px-3 py-2 text-sm outline-none transition-colors ${
+            className={`min-w-0 flex-1 rounded-lg border px-3 py-2 text-sm outline-none transition-all ${
               interventionQueued
-                ? 'border-border/50 bg-surface-overlay text-text-muted cursor-not-allowed opacity-60'
-                : 'border-border bg-background text-text-primary placeholder-text-muted focus:border-accent disabled:opacity-50'
+                ? 'border-white/[0.04] bg-white/[0.02] text-text-muted cursor-not-allowed opacity-60'
+                : 'border-glass-border bg-white/[0.03] text-text-primary placeholder-text-muted focus:border-accent/50 focus:shadow-[0_0_0_3px_rgba(99,102,241,0.08)] disabled:opacity-50'
             }`}
             aria-label={isContinue ? 'Continue the conversation' : 'Type your message'}
           />
@@ -163,7 +163,7 @@ export function UserInterveneBar({ onSend, disabled, mode = 'intervene', interve
             <button
               onClick={() => handleSubmit()}
               disabled={!canSend}
-              className="flex-shrink-0 rounded-lg bg-accent px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-accent-hover disabled:opacity-50 disabled:hover:bg-accent"
+              className="flex-shrink-0 rounded-lg bg-gradient-to-r from-accent to-purple-500 px-4 py-2 text-sm font-medium text-white transition-all hover:shadow-[0_0_20px_rgba(99,102,241,0.25)] active:scale-[0.97] disabled:opacity-50 disabled:hover:shadow-none"
               aria-label="Send message"
             >
               {sending ? (sendLabel || 'Sending...') : 'Send'}
@@ -176,7 +176,7 @@ export function UserInterveneBar({ onSend, disabled, mode = 'intervene', interve
             <button
               onClick={() => handleSubmit('synapse')}
               disabled={!canSend}
-              className="flex-1 rounded-lg border border-accent/40 bg-accent/10 px-3 py-2 text-sm font-medium text-accent transition-colors hover:bg-accent/20 disabled:opacity-50 sm:flex-none"
+              className="flex-1 rounded-lg glass-subtle border border-accent/30 px-3 py-2 text-sm font-medium text-accent transition-all hover:bg-accent/10 hover:shadow-[0_0_12px_rgba(99,102,241,0.1)] active:scale-[0.97] disabled:opacity-50 sm:flex-none"
               aria-label="Ask Synapse"
             >
               {sending ? (sendLabel || '...') : 'Ask Synapse'}
@@ -184,7 +184,7 @@ export function UserInterveneBar({ onSend, disabled, mode = 'intervene', interve
             <button
               onClick={() => handleSubmit('council')}
               disabled={!canSend}
-              className="flex-1 rounded-lg bg-accent px-3 py-2 text-sm font-medium text-white transition-colors hover:bg-accent-hover disabled:opacity-50 disabled:hover:bg-accent sm:flex-none"
+              className="flex-1 rounded-lg bg-gradient-to-r from-accent to-purple-500 px-3 py-2 text-sm font-medium text-white transition-all hover:shadow-[0_0_20px_rgba(99,102,241,0.25)] active:scale-[0.97] disabled:opacity-50 sm:flex-none"
               aria-label="Ask the Council"
             >
               {sending ? (sendLabel || '...') : 'Ask Council'}

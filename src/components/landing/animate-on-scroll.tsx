@@ -1,53 +1,67 @@
 'use client';
 
-import { useRef, useEffect, useState } from 'react';
+import { useRef } from 'react';
+import { motion, useInView, useReducedMotion } from 'motion/react';
 import { cn } from '@/lib/utils/cn';
+
+const VARIANTS = {
+  'fade-up': {
+    hidden: { opacity: 0, y: 24 },
+    visible: { opacity: 1, y: 0 },
+  },
+  'fade-blur': {
+    hidden: { opacity: 0, y: 16, filter: 'blur(8px)' },
+    visible: { opacity: 1, y: 0, filter: 'blur(0px)' },
+  },
+  'scale-in': {
+    hidden: { opacity: 0, scale: 0.92 },
+    visible: { opacity: 1, scale: 1 },
+  },
+  'slide-left': {
+    hidden: { opacity: 0, x: -32 },
+    visible: { opacity: 1, x: 0 },
+  },
+  'slide-right': {
+    hidden: { opacity: 0, x: 32 },
+    visible: { opacity: 1, x: 0 },
+  },
+} as const;
 
 interface AnimateOnScrollProps {
   children: React.ReactNode;
   className?: string;
   delay?: number;
+  variant?: keyof typeof VARIANTS;
+  once?: boolean;
 }
 
-export function AnimateOnScroll({ children, className, delay = 0 }: AnimateOnScrollProps) {
+export function AnimateOnScroll({
+  children,
+  className,
+  delay = 0,
+  variant = 'fade-up',
+  once = true,
+}: AnimateOnScrollProps) {
   const ref = useRef<HTMLDivElement>(null);
-  const [isVisible, setIsVisible] = useState(false);
+  const isInView = useInView(ref, { once, margin: '-15% 0px' });
+  const prefersReduced = useReducedMotion();
 
-  useEffect(() => {
-    const prefersReduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-    if (prefersReduced) {
-      setIsVisible(true);
-      return;
-    }
-
-    const el = ref.current;
-    if (!el) return;
-
-    const observer = new IntersectionObserver(
-      ([entry]) => {
-        if (entry.isIntersecting) {
-          setIsVisible(true);
-          observer.unobserve(el);
-        }
-      },
-      { threshold: 0.15 }
-    );
-
-    observer.observe(el);
-    return () => observer.disconnect();
-  }, []);
+  const v = VARIANTS[variant];
 
   return (
-    <div
+    <motion.div
       ref={ref}
-      className={cn(
-        'transition-all duration-700 ease-out',
-        isVisible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4',
-        className
-      )}
-      style={{ transitionDelay: `${delay}ms` }}
+      className={cn(className)}
+      initial={prefersReduced ? false : v.hidden}
+      animate={isInView ? v.visible : v.hidden}
+      transition={{
+        type: 'spring',
+        stiffness: 100,
+        damping: 20,
+        delay: delay / 1000,
+      }}
     >
       {children}
-    </div>
+    </motion.div>
   );
 }

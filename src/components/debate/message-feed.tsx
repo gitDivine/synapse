@@ -36,7 +36,6 @@ export function MessageFeed({
   const getAgent = (agentId: string) =>
     agents.find((a) => a.id === agentId);
 
-  // Render window: show messages from visibleStart, but always show last RENDER_WINDOW
   const effectiveStart = Math.max(visibleStart, messages.length - RENDER_WINDOW);
   const actualStart = Math.min(visibleStart, effectiveStart);
   const visibleMessages = messages.slice(actualStart);
@@ -46,16 +45,21 @@ export function MessageFeed({
     setVisibleStart((prev) => Math.max(0, prev - EXPAND_STEP));
   };
 
-  // Loading state
+  // Loading state — glass skeleton cards
   if (status === 'connecting') {
     return (
-      <div className="flex flex-1 flex-col gap-4 p-4">
+      <div className="flex flex-1 flex-col gap-3 p-4">
         {[...Array(3)].map((_, i) => (
-          <div key={i} className="flex gap-3">
-            <div className="h-8 w-8 rounded-full bg-surface-raised animate-shimmer" />
+          <div
+            key={i}
+            className="mx-2 flex gap-3 rounded-xl glass-panel px-4 py-3"
+            style={{ opacity: 1 - i * 0.2 }}
+          >
+            <div className="h-8 w-8 flex-shrink-0 rounded-full bg-surface-overlay animate-shimmer" />
             <div className="flex-1 space-y-2">
-              <div className="h-4 w-24 rounded bg-surface-raised animate-shimmer" />
-              <div className="h-16 w-full rounded-lg bg-surface-raised animate-shimmer" />
+              <div className="h-3 w-20 rounded-full bg-surface-overlay animate-shimmer" />
+              <div className="h-3 w-full rounded-full bg-surface-overlay animate-shimmer" />
+              <div className="h-3 w-3/4 rounded-full bg-surface-overlay animate-shimmer" />
             </div>
           </div>
         ))}
@@ -76,7 +80,7 @@ export function MessageFeed({
           </p>
           <button
             onClick={() => window.location.reload()}
-            className="mt-4 rounded-lg bg-accent px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-accent-hover"
+            className="mt-4 rounded-lg bg-gradient-to-r from-accent to-purple-500 px-4 py-2 text-sm font-medium text-white transition-shadow hover:shadow-[0_0_20px_rgba(99,102,241,0.2)]"
           >
             Refresh
           </button>
@@ -85,13 +89,23 @@ export function MessageFeed({
     );
   }
 
-  // Empty state
+  // Empty state — assembling council with converging dots SVG
   if (messages.length === 0 && status === 'active') {
     return (
       <div className="flex flex-1 items-center justify-center p-8">
         <div className="text-center">
-          <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-accent-soft">
-            <span className="text-xl">💭</span>
+          <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-accent/10">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" className="text-accent">
+              <circle cx="6" cy="12" r="2.5" fill="currentColor" opacity="0.9">
+                <animate attributeName="cx" values="6;10;6" dur="2s" repeatCount="indefinite" />
+              </circle>
+              <circle cx="12" cy="12" r="2.5" fill="currentColor" opacity="0.7">
+                <animate attributeName="cy" values="12;10;12" dur="2s" repeatCount="indefinite" begin="0.3s" />
+              </circle>
+              <circle cx="18" cy="12" r="2.5" fill="currentColor" opacity="0.5">
+                <animate attributeName="cx" values="18;14;18" dur="2s" repeatCount="indefinite" begin="0.6s" />
+              </circle>
+            </svg>
           </div>
           <p className="text-sm font-medium text-text-primary">
             Assembling the council...
@@ -116,7 +130,7 @@ export function MessageFeed({
       {hiddenCount > 0 && (
         <button
           onClick={showEarlier}
-          className="w-full border-b border-border px-4 py-2 text-center text-xs font-medium text-accent transition-colors hover:bg-surface-raised"
+          className="w-full border-b border-white/[0.04] px-4 py-2 text-center text-xs font-medium text-accent transition-colors hover:bg-white/[0.02]"
         >
           Show {Math.min(EXPAND_STEP, hiddenCount)} earlier messages ({hiddenCount} hidden)
         </button>
@@ -172,7 +186,6 @@ export function MessageFeed({
               />
             );
           }
-          // Synapse verdict messages (agentId === 'synapse' but not research)
           if (msg.agentId === 'synapse') {
             return (
               <MessageBubble
@@ -215,7 +228,7 @@ export function MessageFeed({
         })}
       </AnimatePresence>
 
-      {/* Idle indicator — waiting for user input */}
+      {/* Idle indicator */}
       {status === 'idle' && (
         <div className="px-4 py-4 text-center">
           <p className="text-xs text-text-muted">

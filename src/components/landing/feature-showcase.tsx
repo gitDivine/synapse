@@ -9,7 +9,7 @@ const MOCK_MESSAGES = [
     avatar: 'N',
     text: 'The evidence strongly suggests that a microservices architecture would introduce unnecessary complexity at this stage. A modular monolith gives us the same separation of concerns without the operational overhead.',
     badge: 'Analytical',
-    badgeColor: 'bg-blue-500/15 text-blue-400',
+    badgeColor: 'bg-blue-500/15 text-blue-400 border border-blue-500/20',
   },
   {
     name: 'Aria Voss',
@@ -17,7 +17,7 @@ const MOCK_MESSAGES = [
     avatar: 'A',
     text: 'I disagree. You\'re underestimating the scaling bottlenecks. When traffic spikes hit, that monolith becomes a single point of failure.',
     badge: 'Skeptical',
-    badgeColor: 'bg-red-500/15 text-red-400',
+    badgeColor: 'bg-red-500/15 text-red-400 border border-red-500/20',
     replyTo: 'Dr. Nexus',
     reactions: { '🔥': 3, '👍': 2 },
   },
@@ -27,23 +27,23 @@ const MOCK_MESSAGES = [
     avatar: 'K',
     text: 'What if we start with a modular monolith but design the module boundaries as future service boundaries? We get simplicity now with a clear migration path.',
     badge: 'Synthesizing',
-    badgeColor: 'bg-green-500/15 text-green-400',
+    badgeColor: 'bg-green-500/15 text-green-400 border border-green-500/20',
     reactions: { '💡': 4, '👍': 5 },
   },
 ];
 
 const MOCK_AGENTS = [
-  { name: 'Dr. Nexus', avatar: 'N', color: 'var(--agent-blue)', badge: 'Analytical', badgeColor: 'bg-blue-500/15 text-blue-400' },
-  { name: 'Aria Voss', avatar: 'A', color: 'var(--agent-red)', badge: 'Skeptical', badgeColor: 'bg-red-500/15 text-red-400' },
+  { name: 'Dr. Nexus', avatar: 'N', color: 'var(--agent-blue)', badge: 'Analytical', badgeColor: 'bg-blue-500/15 text-blue-400 border border-blue-500/20' },
+  { name: 'Aria Voss', avatar: 'A', color: 'var(--agent-red)', badge: 'Skeptical', badgeColor: 'bg-red-500/15 text-red-400 border border-red-500/20' },
 ];
 
-/* ── Showcase Sections ───────────────────────────────────────── */
+/* ── Mock UI components with glass treatment ─────────────────── */
 
 function MockMessageFeed() {
   return (
-    <div className="overflow-hidden rounded-xl border border-border bg-background">
+    <div className="overflow-hidden rounded-xl glass">
       {MOCK_MESSAGES.map((msg, i) => (
-        <div key={i} className="flex gap-3 border-b border-border/50 px-4 py-3 last:border-b-0">
+        <div key={i} className="flex gap-3 border-b border-white/[0.04] px-4 py-3 transition-colors last:border-b-0 hover:bg-white/[0.02]">
           <div
             className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full text-xs font-bold text-white"
             style={{ backgroundColor: msg.color }}
@@ -60,7 +60,7 @@ function MockMessageFeed() {
               </div>
             )}
             <div className="mb-1 flex items-center gap-2">
-              <span className="text-sm font-medium" style={{ color: msg.color }}>{msg.name}</span>
+              <span className="text-sm font-semibold" style={{ color: msg.color }}>{msg.name}</span>
               <span className={`rounded-full px-1.5 py-0.5 text-[9px] font-medium ${msg.badgeColor}`}>
                 {msg.badge}
               </span>
@@ -69,7 +69,7 @@ function MockMessageFeed() {
             {msg.reactions && (
               <div className="mt-2 flex gap-1.5">
                 {Object.entries(msg.reactions).map(([emoji, count]) => (
-                  <span key={emoji} className="inline-flex items-center gap-1 rounded-full border border-border bg-surface-raised px-2 py-0.5 text-[10px]">
+                  <span key={emoji} className="inline-flex items-center gap-1 rounded-full glass-subtle px-2 py-0.5 text-[10px]">
                     {emoji} <span className="text-text-muted">{count}</span>
                   </span>
                 ))}
@@ -84,28 +84,28 @@ function MockMessageFeed() {
 
 function MockSidebar() {
   return (
-    <div className="overflow-hidden rounded-xl border border-border bg-surface-raised">
+    <div className="overflow-hidden rounded-xl glass">
       {/* Consensus */}
-      <div className="border-b border-border p-4">
+      <div className="border-b border-white/[0.04] p-4">
         <h4 className="mb-1 text-xs font-semibold uppercase tracking-wider text-text-muted">Consensus</h4>
         <div className="flex items-center justify-between">
           <span className="text-lg font-bold text-amber-400">67%</span>
           <span className="text-[10px] text-text-muted">Converging</span>
         </div>
-        <div className="mt-2 h-1.5 w-full rounded-full bg-surface-overlay">
-          <div className="h-full w-[67%] rounded-full bg-gradient-to-r from-amber-500 to-amber-400" />
+        <div className="mt-2 h-1.5 w-full rounded-full bg-white/[0.04]">
+          <div className="h-full w-[67%] rounded-full bg-gradient-to-r from-amber-500/60 to-amber-400" />
         </div>
       </div>
 
       {/* Momentum */}
-      <div className="border-b border-border p-4">
+      <div className="border-b border-white/[0.04] p-4">
         <h4 className="mb-1 text-xs font-semibold uppercase tracking-wider text-text-muted">Momentum</h4>
         <div className="flex items-center justify-between">
           <span className="text-lg font-bold text-orange-400">45%</span>
           <span className="text-[10px] text-orange-400">↑ Heating</span>
         </div>
-        <div className="mt-2 h-1.5 w-full rounded-full bg-surface-overlay">
-          <div className="h-full w-[45%] rounded-full bg-gradient-to-r from-orange-500 to-red-500" />
+        <div className="mt-2 h-1.5 w-full rounded-full bg-white/[0.04]">
+          <div className="h-full w-[45%] rounded-full bg-gradient-to-r from-orange-500/60 to-red-500" />
         </div>
       </div>
 
@@ -114,7 +114,7 @@ function MockSidebar() {
         <h4 className="mb-3 text-xs font-semibold uppercase tracking-wider text-text-muted">Council Members</h4>
         <div className="space-y-2">
           {MOCK_AGENTS.map((agent) => (
-            <div key={agent.name} className="flex items-center gap-2 rounded-lg border border-border bg-background p-2.5">
+            <div key={agent.name} className="flex items-center gap-2 rounded-lg glass-subtle p-2.5">
               <div
                 className="flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-full text-[10px] font-bold text-white"
                 style={{ backgroundColor: agent.color }}
@@ -137,7 +137,7 @@ function MockSidebar() {
 
 function MockReplayPlayer() {
   return (
-    <div className="overflow-hidden rounded-xl border border-border bg-surface-raised">
+    <div className="overflow-hidden rounded-xl glass">
       {/* Mock messages area */}
       <div className="space-y-2 p-4">
         {MOCK_MESSAGES.slice(0, 2).map((msg, i) => (
@@ -148,7 +148,7 @@ function MockReplayPlayer() {
             >
               {msg.avatar}
             </div>
-            <div className="rounded-lg bg-background px-3 py-1.5">
+            <div className="rounded-lg glass-subtle px-3 py-1.5">
               <span className="text-[10px] font-medium" style={{ color: msg.color }}>{msg.name}</span>
               <p className="text-[11px] leading-relaxed text-neutral-300">{msg.text.slice(0, 80)}...</p>
             </div>
@@ -157,18 +157,20 @@ function MockReplayPlayer() {
       </div>
 
       {/* Player bar */}
-      <div className="border-t border-border px-4 py-3">
+      <div className="border-t border-white/[0.04] px-4 py-3">
         <div className="flex items-center gap-3">
-          <div className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full bg-accent">
+          <div className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-accent to-purple-500 shadow-[0_0_12px_rgba(99,102,241,0.3)]">
             <svg width="12" height="12" viewBox="0 0 12 12" fill="white">
               <path d="M2.5 1v10l8-5z" />
             </svg>
           </div>
           <span className="text-[10px] tabular-nums text-text-muted">1:24</span>
-          <div className="flex-1">
-            <div className="h-1 rounded-full bg-surface-overlay">
+          <div className="relative flex-1">
+            <div className="h-1 rounded-full bg-white/[0.04]">
               <div className="h-full w-[31%] rounded-full bg-accent" />
             </div>
+            {/* Glowing dot at progress position */}
+            <div className="absolute top-1/2 h-2 w-2 -translate-y-1/2 rounded-full bg-accent shadow-[0_0_6px_rgba(99,102,241,0.5)]" style={{ left: '31%' }} />
           </div>
           <span className="text-[10px] tabular-nums text-text-muted">4:30</span>
         </div>
@@ -178,14 +180,14 @@ function MockReplayPlayer() {
               <span
                 key={s}
                 className={`rounded px-1.5 py-0.5 text-[9px] font-medium ${
-                  s === 1 ? 'bg-accent/15 text-accent' : 'text-text-muted'
+                  s === 1 ? 'glass border-accent/30 text-accent' : 'text-text-muted'
                 }`}
               >
                 {s}x
               </span>
             ))}
           </div>
-          <span className="rounded-lg bg-surface-overlay px-2.5 py-1 text-[9px] font-medium text-text-secondary">
+          <span className="glass-subtle rounded-lg px-2.5 py-1 text-[9px] font-medium text-text-secondary">
             Share
           </span>
         </div>
@@ -194,7 +196,7 @@ function MockReplayPlayer() {
   );
 }
 
-/* ── Showcase sections data ──────────────────────────────────── */
+/* ── Showcase sections ───────────────────────────────────────── */
 
 const SECTIONS = [
   {
@@ -202,6 +204,8 @@ const SECTIONS = [
     description:
       'Follow the conversation in real-time as AI agents present arguments, challenge each other, and build on ideas. React with emojis, see reply threading, and intervene as the moderator whenever you want.',
     mock: <MockMessageFeed />,
+    textVariant: 'slide-left' as const,
+    mockVariant: 'scale-in' as const,
   },
   {
     title: 'Track Real-Time Dynamics',
@@ -209,12 +213,16 @@ const SECTIONS = [
       'Monitor consensus as it forms, watch conversation momentum shift between heating and cooling, and see each agent\'s psychological state evolve throughout the discussion.',
     mock: <MockSidebar />,
     reverse: true,
+    textVariant: 'slide-right' as const,
+    mockVariant: 'scale-in' as const,
   },
   {
     title: 'Replay Any Conversation',
     description:
       'Every conversation is automatically recorded. Share replay links with anyone — they can watch the full conversation unfold with adjustable playback speed and full timeline control.',
     mock: <MockReplayPlayer />,
+    textVariant: 'slide-left' as const,
+    mockVariant: 'scale-in' as const,
   },
 ];
 
@@ -222,29 +230,30 @@ export function FeatureShowcase() {
   return (
     <section className="px-4 py-20">
       <div className="mx-auto max-w-5xl space-y-24">
-        {SECTIONS.map((section, i) => (
-          <AnimateOnScroll key={section.title}>
-            <div
-              className={`flex flex-col items-center gap-8 md:gap-12 ${
-                section.reverse ? 'md:flex-row-reverse' : 'md:flex-row'
-              }`}
-            >
-              {/* Text side */}
-              <div className="flex-1 space-y-4">
-                <h3 className="text-2xl font-bold tracking-tight text-text-primary sm:text-3xl">
-                  {section.title}
-                </h3>
-                <p className="text-base leading-relaxed text-text-secondary">
-                  {section.description}
-                </p>
-              </div>
+        {SECTIONS.map((section) => (
+          <div
+            key={section.title}
+            className={`flex flex-col items-center gap-8 md:gap-12 ${
+              section.reverse ? 'md:flex-row-reverse' : 'md:flex-row'
+            }`}
+          >
+            {/* Text side */}
+            <AnimateOnScroll variant={section.textVariant} className="flex-1 space-y-4">
+              <h3 className="text-2xl font-bold tracking-tight text-text-primary sm:text-3xl">
+                {section.title}
+              </h3>
+              <p className="text-base leading-relaxed text-text-secondary">
+                {section.description}
+              </p>
+            </AnimateOnScroll>
 
-              {/* Mock UI side */}
-              <div className="w-full flex-1">
-                {section.mock}
-              </div>
-            </div>
-          </AnimateOnScroll>
+            {/* Mock UI side */}
+            <AnimateOnScroll variant={section.mockVariant} delay={150} className="relative w-full flex-1">
+              {/* Subtle glow behind mock UI */}
+              <div className="pointer-events-none absolute inset-0 -z-10 rounded-2xl bg-accent/[0.04] blur-2xl" aria-hidden="true" />
+              {section.mock}
+            </AnimateOnScroll>
+          </div>
         ))}
       </div>
     </section>

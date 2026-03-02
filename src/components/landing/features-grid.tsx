@@ -1,3 +1,6 @@
+'use client';
+
+import { motion } from 'motion/react';
 import { AnimateOnScroll } from './animate-on-scroll';
 
 const FEATURES = [
@@ -70,9 +73,9 @@ export function FeaturesGrid() {
   return (
     <section id="features" className="px-4 py-20">
       <div className="mx-auto max-w-5xl">
-        <AnimateOnScroll className="mb-12 text-center">
+        <AnimateOnScroll variant="fade-blur" className="mb-12 text-center">
           <h2 className="text-3xl font-bold tracking-tight text-text-primary sm:text-4xl">
-            Everything you need for rigorous AI reasoning
+            Everything you need for <span className="gradient-text">rigorous</span> AI reasoning
           </h2>
           <p className="mt-3 text-base text-text-secondary">
             A complete toolkit for multi-perspective problem solving.
@@ -83,19 +86,26 @@ export function FeaturesGrid() {
           {FEATURES.map((feature, i) => (
             <AnimateOnScroll
               key={feature.title}
-              delay={(i % 3) * 100}
+              variant="fade-blur"
+              delay={i < 3 ? i * 80 : (i - 3) * 80 + 100}
             >
-              <div className="group rounded-xl border border-border bg-surface-raised p-6 transition-colors hover:border-accent/30">
-                <div className="mb-3 flex h-10 w-10 items-center justify-center rounded-lg bg-accent/10 text-accent">
-                  {feature.icon}
+              <motion.div
+                className="group relative overflow-hidden rounded-xl glass p-6 transition-colors hover:border-accent/30 hover:shadow-[0_0_30px_rgba(99,102,241,0.08)]"
+                whileHover={{ y: -4, transition: { type: 'spring', stiffness: 300, damping: 20 } }}
+              >
+                <div className="pointer-events-none absolute inset-0 rounded-xl bg-gradient-to-b from-white/[0.03] to-transparent" aria-hidden="true" />
+                <div className="relative">
+                  <div className="mb-3 flex h-10 w-10 items-center justify-center rounded-lg bg-accent/8 text-accent shadow-[0_0_20px_rgba(99,102,241,0.1)] backdrop-blur-sm transition-transform duration-300 group-hover:scale-110">
+                    {feature.icon}
+                  </div>
+                  <h3 className="mb-2 text-base font-semibold text-text-primary">
+                    {feature.title}
+                  </h3>
+                  <p className="text-sm leading-relaxed text-text-secondary">
+                    {feature.description}
+                  </p>
                 </div>
-                <h3 className="mb-2 text-base font-semibold text-text-primary">
-                  {feature.title}
-                </h3>
-                <p className="text-sm leading-relaxed text-text-secondary">
-                  {feature.description}
-                </p>
-              </div>
+              </motion.div>
             </AnimateOnScroll>
           ))}
         </div>

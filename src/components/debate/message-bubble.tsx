@@ -27,9 +27,7 @@ interface MessageBubbleProps {
 
 /** Strip <think>...</think> blocks (e.g. Qwen's chain-of-thought) from displayed text */
 function stripThinkBlocks(text: string): string {
-  // Remove complete <think>...</think> blocks (including multiline)
   let cleaned = text.replace(/<think>[\s\S]*?<\/think>\s*/g, '');
-  // Remove an unclosed <think> block at the end (still streaming)
   cleaned = cleaned.replace(/<think>[\s\S]*$/, '');
   return cleaned.trimStart();
 }
@@ -68,19 +66,19 @@ function MessageBubbleInner({
   influenceScore,
 }: MessageBubbleProps) {
   const bgClass = isUser
-    ? 'bg-accent-soft'
+    ? 'bg-accent/8 border border-accent/15 backdrop-blur-sm'
     : isResearch
-      ? 'bg-surface-overlay border-l-2 border-accent/30'
-      : '';
+      ? 'glass-panel border-l-2 border-l-accent/30'
+      : 'glass-panel';
 
   // Influence heat map glow
   const influenceStyle: React.CSSProperties = {};
   if (influenceScore !== undefined && influenceScore > 0.1) {
     if (influenceScore > 0.7) {
-      influenceStyle.boxShadow = '0 0 20px rgba(251, 191, 36, 0.15)';
+      influenceStyle.boxShadow = '0 0 24px rgba(251, 191, 36, 0.2), inset 0 0 0 1px rgba(251, 191, 36, 0.15)';
       influenceStyle.borderLeft = '2px solid rgba(251, 191, 36, 0.6)';
     } else if (influenceScore > 0.4) {
-      influenceStyle.boxShadow = '0 0 12px rgba(251, 191, 36, 0.08)';
+      influenceStyle.boxShadow = '0 0 16px rgba(251, 191, 36, 0.1), inset 0 0 0 1px rgba(251, 191, 36, 0.08)';
       influenceStyle.borderLeft = '2px solid rgba(251, 191, 36, 0.3)';
     } else {
       influenceStyle.boxShadow = '0 0 6px rgba(251, 191, 36, 0.04)';
@@ -90,10 +88,10 @@ function MessageBubbleInner({
   return (
     <motion.div
       id={messageId}
-      initial={{ opacity: 0, y: 12 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ type: 'spring', stiffness: 500, damping: 30 }}
-      className={`group flex gap-3 px-4 py-3 transition-shadow ${bgClass}`}
+      initial={{ opacity: 0, y: 16, scale: 0.97 }}
+      animate={{ opacity: 1, y: 0, scale: 1 }}
+      transition={{ type: 'spring', stiffness: 400, damping: 28, mass: 0.8 }}
+      className={`group flex gap-3 rounded-xl mx-2 my-1 px-4 py-3 transition-all ${bgClass}`}
       style={influenceStyle}
       role="article"
       aria-label={`${agentName} says`}
@@ -116,21 +114,23 @@ function MessageBubbleInner({
         )}
 
         <div className="mb-1 flex items-center gap-2">
-          <span className="text-sm font-medium" style={{ color: agentColor }}>
+          <span
+            className={`text-sm font-semibold ${isStreaming ? 'drop-shadow-[0_0_6px_currentColor]' : ''}`}
+            style={{ color: agentColor }}
+          >
             {agentName}
           </span>
           {!isUser && !isResearch && <PsychologicalBadge trait={psychState} />}
           {isUser && (
-            <span className="inline-flex items-center rounded-full bg-accent/10 px-2 py-0.5 text-[10px] font-medium text-accent">
+            <span className="inline-flex items-center rounded-full bg-accent/10 px-2 py-0.5 text-[10px] font-medium text-accent border border-accent/20">
               Moderator
             </span>
           )}
           {isResearch && (
-            <span className="inline-flex items-center rounded-full bg-cyan-500/10 px-2 py-0.5 text-[10px] font-medium text-cyan-400">
+            <span className="inline-flex items-center rounded-full bg-cyan-500/10 px-2 py-0.5 text-[10px] font-medium text-cyan-400 border border-cyan-500/20">
               Live Research
             </span>
           )}
-          {/* Influence tooltip */}
           {influenceScore !== undefined && influenceScore > 0.1 && (
             <span
               className="text-[10px] tabular-nums text-amber-400/70"
@@ -143,10 +143,8 @@ function MessageBubbleInner({
         <div className={`whitespace-pre-wrap text-sm leading-relaxed ${isResearch ? 'text-text-secondary font-mono text-xs' : 'text-neutral-200'}`}>
           {renderWithLinks(stripThinkBlocks(content))}
           {isStreaming && (
-            <motion.span
-              animate={{ opacity: [1, 0] }}
-              transition={{ repeat: Infinity, duration: 0.8 }}
-              className="ml-0.5 inline-block h-4 w-[2px] bg-current align-middle"
+            <span
+              className="ml-0.5 inline-block h-4 w-[3px] rounded-full bg-current align-middle animate-cursor-breathe"
               aria-hidden="true"
             />
           )}

@@ -28,7 +28,7 @@ export function ReplyIndicator({
   return (
     <button
       onClick={handleClick}
-      className="mb-1 inline-flex max-w-full items-center gap-1.5 rounded-md border-l-2 bg-surface-overlay/50 px-2 py-0.5 text-[10px] text-text-muted transition-colors hover:bg-surface-overlay hover:text-text-secondary"
+      className="mb-1 inline-flex max-w-full items-center gap-1.5 rounded-md border-l-2 glass-subtle px-2 py-0.5 text-[10px] text-text-muted transition-all hover:bg-white/[0.06] hover:text-text-secondary hover:scale-[1.02] active:scale-[0.98]"
       style={{ borderLeftColor: agentColor ?? 'var(--accent)' }}
       aria-label={`Replying to ${agentName}`}
     >

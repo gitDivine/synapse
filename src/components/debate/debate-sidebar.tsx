@@ -42,15 +42,15 @@ export function DebateSidebar({
   };
 
   return (
-    <aside className="flex w-64 flex-col border-l border-border bg-surface-raised">
+    <aside className="flex w-64 flex-col glass-panel-raised border-l border-glass-border">
       {/* Debate progress */}
-      <div className="border-b border-border p-4">
+      <div className="border-b border-white/[0.04] p-4">
         <h3 className="mb-1 text-xs font-semibold uppercase tracking-wider text-text-muted">
           Conversation Progress
         </h3>
         <div className="mt-3 flex items-center gap-2">
           <div
-            className="h-2 w-2 rounded-full"
+            className={`h-2 w-2 rounded-full ${status === 'active' ? 'animate-pulse-glow' : ''}`}
             style={{
               backgroundColor:
                 status === 'active'
@@ -60,6 +60,7 @@ export function DebateSidebar({
                     : status === 'error'
                       ? '#ef4444'
                       : '#71717a',
+              boxShadow: status === 'active' ? '0 0 8px #22c55e60' : undefined,
             }}
           />
           <span className="text-xs text-text-secondary capitalize">
@@ -74,12 +75,12 @@ export function DebateSidebar({
       </div>
 
       {/* Consensus meter */}
-      <div className="border-b border-border p-4">
+      <div className="border-b border-white/[0.04] p-4">
         <ConsensusMeter score={consensusScore} status={status} />
       </div>
 
       {/* Momentum meter */}
-      <div className="border-b border-border p-4">
+      <div className="border-b border-white/[0.04] p-4">
         <MomentumMeter
           momentum={momentum}
           direction={momentumDirection}
@@ -89,13 +90,13 @@ export function DebateSidebar({
 
       {/* Post-round actions */}
       {status === 'idle' && (
-        <div className="border-b border-border p-4 space-y-2">
+        <div className="border-b border-white/[0.04] p-4 space-y-2">
           <button
             onClick={onToggleInfluence}
-            className={`w-full rounded-lg px-3 py-2 text-xs font-medium transition-colors ${
+            className={`w-full rounded-lg px-3 py-2 text-xs font-medium transition-all ${
               showInfluence
-                ? 'bg-amber-500/15 text-amber-400 border border-amber-500/30'
-                : 'bg-surface-overlay text-text-secondary hover:bg-surface-overlay/80'
+                ? 'bg-amber-500/15 text-amber-400 border border-amber-500/30 shadow-[0_0_12px_rgba(245,158,11,0.1)]'
+                : 'glass-subtle text-text-secondary hover:bg-white/[0.06]'
             }`}
           >
             {showInfluence ? 'Hide Influence Map' : 'Show Influence Map'}
@@ -103,7 +104,7 @@ export function DebateSidebar({
           {sessionId && (
             <button
               onClick={handleShareReplay}
-              className="w-full rounded-lg bg-surface-overlay px-3 py-2 text-xs font-medium text-text-secondary transition-colors hover:bg-surface-overlay/80"
+              className="w-full rounded-lg glass-subtle px-3 py-2 text-xs font-medium text-text-secondary transition-all hover:bg-white/[0.06]"
             >
               Share Replay Link
             </button>
@@ -122,10 +123,10 @@ export function DebateSidebar({
             return (
               <div
                 key={agent.id}
-                className={`rounded-lg border p-3 transition-colors ${
+                className={`rounded-lg p-3 transition-all ${
                   isActive
-                    ? 'border-accent/30 bg-accent-soft'
-                    : 'border-border bg-background'
+                    ? 'glass-subtle border border-accent/30 shadow-[0_0_16px_rgba(99,102,241,0.08)]'
+                    : 'glass-subtle border border-transparent hover:border-white/[0.06]'
                 }`}
               >
                 <div className="flex items-center gap-2">
@@ -140,7 +141,7 @@ export function DebateSidebar({
                       {agent.displayName}
                     </p>
                     {isActive && (
-                      <p className="text-[10px] text-accent">Speaking...</p>
+                      <p className="text-[10px] text-accent drop-shadow-[0_0_4px_rgba(99,102,241,0.4)]">Speaking...</p>
                     )}
                   </div>
                 </div>

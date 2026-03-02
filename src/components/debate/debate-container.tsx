@@ -104,7 +104,7 @@ export function DebateContainer({ sessionId, problem }: DebateContainerProps) {
         {/* Mobile sidebar toggle */}
         <button
           onClick={() => setSidebarOpen((p) => !p)}
-          className="fixed right-4 top-16 z-40 flex h-10 w-10 items-center justify-center rounded-full border border-border bg-surface-raised shadow-lg md:hidden"
+          className="fixed right-4 top-16 z-40 flex h-10 w-10 items-center justify-center rounded-full glass-panel shadow-[0_4px_24px_rgba(0,0,0,0.3)] md:hidden active:scale-95 transition-transform"
           aria-label={sidebarOpen ? 'Close sidebar' : 'Open sidebar'}
         >
           {sidebarOpen ? (
@@ -121,7 +121,7 @@ export function DebateContainer({ sessionId, problem }: DebateContainerProps) {
         {/* Mobile backdrop */}
         {sidebarOpen && (
           <div
-            className="fixed inset-0 z-30 bg-black/50 md:hidden"
+            className="fixed inset-0 z-30 bg-black/60 backdrop-blur-sm md:hidden"
             onClick={() => setSidebarOpen(false)}
           />
         )}
@@ -130,9 +130,10 @@ export function DebateContainer({ sessionId, problem }: DebateContainerProps) {
         {agents.length > 0 ? (
           <div
             className={cn(
-              'fixed right-0 top-0 z-40 h-full w-64 transition-transform duration-300 md:relative md:translate-x-0',
+              'fixed right-0 top-0 z-40 h-full w-64 md:relative md:translate-x-0',
               sidebarOpen ? 'translate-x-0' : 'translate-x-full'
             )}
+            style={{ transition: 'transform 0.4s cubic-bezier(0.32, 0.72, 0, 1)' }}
           >
             <DebateSidebar
               agents={agents}
@@ -148,23 +149,23 @@ export function DebateContainer({ sessionId, problem }: DebateContainerProps) {
             />
           </div>
         ) : (
-          <aside className="hidden w-64 flex-col border-l border-border bg-surface-raised md:flex">
-            <div className="border-b border-border p-4">
-              <div className="mb-2 h-3 w-24 rounded bg-surface-overlay animate-shimmer" />
-              <div className="h-2 w-16 rounded bg-surface-overlay animate-shimmer" />
+          <aside className="hidden w-64 flex-col glass-panel-raised border-l border-glass-border md:flex">
+            <div className="border-b border-white/[0.04] p-4">
+              <div className="mb-2 h-3 w-24 rounded bg-white/[0.04] animate-shimmer" />
+              <div className="h-2 w-16 rounded bg-white/[0.04] animate-shimmer" />
             </div>
-            <div className="border-b border-border p-4">
-              <div className="h-3 w-20 rounded bg-surface-overlay animate-shimmer" />
-              <div className="mt-2 h-1.5 w-full rounded-full bg-surface-overlay animate-shimmer" />
+            <div className="border-b border-white/[0.04] p-4">
+              <div className="h-3 w-20 rounded bg-white/[0.04] animate-shimmer" />
+              <div className="mt-2 h-1.5 w-full rounded-full bg-white/[0.04] animate-shimmer" />
             </div>
             <div className="p-4">
-              <div className="mb-3 h-3 w-24 rounded bg-surface-overlay animate-shimmer" />
+              <div className="mb-3 h-3 w-24 rounded bg-white/[0.04] animate-shimmer" />
               <div className="space-y-3">
                 {[...Array(3)].map((_, i) => (
-                  <div key={i} className="rounded-lg border border-border bg-background p-3">
+                  <div key={i} className="rounded-lg glass-subtle p-3">
                     <div className="flex items-center gap-2">
-                      <div className="h-8 w-8 rounded-full bg-surface-overlay animate-shimmer" />
-                      <div className="h-3 w-20 rounded bg-surface-overlay animate-shimmer" />
+                      <div className="h-8 w-8 rounded-full bg-white/[0.04] animate-shimmer" />
+                      <div className="h-3 w-20 rounded bg-white/[0.04] animate-shimmer" />
                     </div>
                   </div>
                 ))}

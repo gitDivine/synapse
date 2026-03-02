@@ -1,7 +1,5 @@
 'use client';
 
-import { cn } from '@/lib/utils/cn';
-
 interface AgentAvatarProps {
   avatar: string;
   color: string;
@@ -16,18 +14,29 @@ export function AgentAvatar({ avatar, color, isActive, name }: AgentAvatarProps)
       role="img"
       aria-label={`${name ?? avatar} avatar${isActive ? ', currently speaking' : ''}`}
     >
+      {/* Glow halo when active */}
+      {isActive && (
+        <div
+          className="absolute -inset-1 rounded-full animate-pulse-glow blur-sm"
+          style={{ backgroundColor: color, opacity: 0.35 }}
+          aria-hidden="true"
+        />
+      )}
       <div
-        className={cn(
-          'flex h-8 w-8 items-center justify-center rounded-full text-xs font-bold text-white'
-        )}
-        style={{ backgroundColor: color }}
+        className="relative flex h-8 w-8 items-center justify-center rounded-full text-xs font-bold text-white transition-shadow"
+        style={{
+          backgroundColor: color,
+          boxShadow: isActive
+            ? `0 0 12px ${color}40, inset 0 1px 0 rgba(255,255,255,0.15), 0 0 0 2px ${color}50`
+            : 'inset 0 1px 0 rgba(255,255,255,0.1)',
+        }}
       >
         {avatar}
       </div>
       {isActive && (
         <div
           className="absolute inset-0 rounded-full animate-pulse-ring"
-          style={{ borderColor: color, border: '2px solid' }}
+          style={{ border: `2px solid ${color}` }}
           aria-hidden="true"
         />
       )}

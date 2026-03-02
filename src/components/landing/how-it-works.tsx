@@ -1,3 +1,7 @@
+'use client';
+
+import { useRef } from 'react';
+import { motion, useInView, useReducedMotion } from 'motion/react';
 import { AnimateOnScroll } from './animate-on-scroll';
 
 const STEPS = [
@@ -22,10 +26,14 @@ const STEPS = [
 ];
 
 export function HowItWorks() {
+  const sectionRef = useRef<HTMLDivElement>(null);
+  const isInView = useInView(sectionRef, { once: true, margin: '-20% 0px' });
+  const prefersReduced = useReducedMotion();
+
   return (
     <section id="how-it-works" className="px-4 py-20">
       <div className="mx-auto max-w-4xl">
-        <AnimateOnScroll className="mb-12 text-center">
+        <AnimateOnScroll variant="fade-blur" className="mb-12 text-center">
           <h2 className="text-3xl font-bold tracking-tight text-text-primary sm:text-4xl">
             How it works
           </h2>
@@ -34,36 +42,90 @@ export function HowItWorks() {
           </p>
         </AnimateOnScroll>
 
-        <AnimateOnScroll>
-          <div className="flex flex-col gap-8 md:flex-row md:gap-6">
+        <div ref={sectionRef} className="relative">
+          {/* SVG connecting line (desktop) */}
+          <svg
+            className="pointer-events-none absolute left-0 top-6 hidden h-[2px] w-full md:block"
+            preserveAspectRatio="none"
+            aria-hidden="true"
+          >
+            <motion.line
+              x1="17%"
+              y1="1"
+              x2="83%"
+              y2="1"
+              stroke="var(--accent)"
+              strokeWidth="1"
+              strokeOpacity="0.3"
+              strokeDasharray="600"
+              initial={{ strokeDashoffset: 600 }}
+              animate={isInView && !prefersReduced ? { strokeDashoffset: 0 } : {}}
+              transition={{ duration: 1.5, ease: 'easeInOut', delay: 0.3 }}
+            />
+          </svg>
+
+          {/* Vertical connecting line (mobile) */}
+          <svg
+            className="pointer-events-none absolute left-1/2 top-0 h-full w-[2px] -translate-x-1/2 md:hidden"
+            preserveAspectRatio="none"
+            aria-hidden="true"
+          >
+            <motion.line
+              x1="1"
+              y1="24"
+              x2="1"
+              y2="100%"
+              stroke="var(--accent)"
+              strokeWidth="1"
+              strokeOpacity="0.15"
+              strokeDasharray="800"
+              initial={{ strokeDashoffset: 800 }}
+              animate={isInView && !prefersReduced ? { strokeDashoffset: 0 } : {}}
+              transition={{ duration: 1.5, ease: 'easeInOut', delay: 0.3 }}
+            />
+          </svg>
+
+          <div className="flex flex-col gap-12 md:flex-row md:gap-6">
             {STEPS.map((step, i) => (
-              <div key={step.number} className="flex flex-1 flex-col items-center md:items-center">
-                {/* Step content */}
-                <div className="flex flex-col items-center text-center">
+              <motion.div
+                key={step.number}
+                className="relative flex flex-1 flex-col items-center text-center"
+                initial={prefersReduced ? false : { opacity: 0, scale: 0.9 }}
+                animate={isInView ? { opacity: 1, scale: 1 } : {}}
+                transition={{
+                  type: 'spring',
+                  stiffness: 100,
+                  damping: 18,
+                  delay: 0.2 + i * 0.2,
+                }}
+              >
+                <div className="relative">
                   <div className="flex h-12 w-12 items-center justify-center rounded-full border border-accent/20 bg-accent/10 text-lg font-bold text-accent">
                     {step.number}
                   </div>
-                  <h3 className="mt-4 text-lg font-semibold text-text-primary">
-                    {step.title}
-                  </h3>
-                  <p className="mt-2 max-w-xs text-sm leading-relaxed text-text-secondary">
-                    {step.description}
-                  </p>
+                  {/* Subtle glow behind circle */}
+                  <div className="absolute inset-0 -z-10 rounded-full bg-accent/10 blur-lg" aria-hidden="true" />
                 </div>
-
-                {/* Connecting line (desktop only, not after last) */}
-                {i < STEPS.length - 1 && (
-                  <div className="mt-4 hidden h-[1px] w-full bg-gradient-to-r from-transparent via-border to-transparent md:absolute md:left-full md:top-6 md:block md:w-full" />
-                )}
-              </div>
+                <motion.h3
+                  className="mt-4 text-lg font-semibold text-text-primary"
+                  initial={prefersReduced ? false : { opacity: 0, y: 8 }}
+                  animate={isInView ? { opacity: 1, y: 0 } : {}}
+                  transition={{ delay: 0.4 + i * 0.2 }}
+                >
+                  {step.title}
+                </motion.h3>
+                <motion.p
+                  className="mt-2 max-w-xs text-sm leading-relaxed text-text-secondary"
+                  initial={prefersReduced ? false : { opacity: 0, y: 8 }}
+                  animate={isInView ? { opacity: 1, y: 0 } : {}}
+                  transition={{ delay: 0.6 + i * 0.2 }}
+                >
+                  {step.description}
+                </motion.p>
+              </motion.div>
             ))}
           </div>
-
-          {/* Desktop connecting dashes */}
-          <div className="mt-6 hidden items-center justify-center gap-1 md:flex">
-            <div className="h-[1px] flex-1 bg-gradient-to-r from-transparent via-border to-transparent" />
-          </div>
-        </AnimateOnScroll>
+        </div>
       </div>
     </section>
   );

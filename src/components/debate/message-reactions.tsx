@@ -1,5 +1,7 @@
 'use client';
 
+import { motion } from 'motion/react';
+
 const EMOJI_SET = ['👍', '👎', '🤔', '🔥', '💡', '❌'];
 
 interface MessageReactionsProps {
@@ -24,14 +26,17 @@ export function MessageReactions({
         const isActive = count > 0;
 
         return (
-          <button
+          <motion.button
             key={emoji}
             onClick={() => onReact(messageId, emoji)}
             disabled={disabled}
+            whileHover={{ scale: 1.1 }}
+            whileTap={{ scale: 1.4, rotate: -12 }}
+            transition={{ type: 'spring', stiffness: 500, damping: 15 }}
             className={`inline-flex items-center gap-0.5 rounded-full px-1.5 py-0.5 text-xs transition-all ${
               isActive
-                ? 'border border-accent/30 bg-accent-soft'
-                : 'border border-transparent opacity-0 group-hover:opacity-100 hover:bg-surface-overlay'
+                ? 'glass-subtle border border-accent/30'
+                : 'border border-transparent opacity-0 group-hover:opacity-100 hover:bg-white/[0.04]'
             } disabled:pointer-events-none`}
             aria-label={`React with ${emoji}`}
           >
@@ -41,10 +46,9 @@ export function MessageReactions({
                 {count}
               </span>
             )}
-          </button>
+          </motion.button>
         );
       })}
-      {/* Show a subtle hint on hover when no reactions exist */}
       {!hasAnyReactions && (
         <span className="text-[10px] text-text-muted opacity-0 group-hover:opacity-50">
           React
